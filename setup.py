@@ -20,6 +20,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
+
 setuptools.setup(
     name="tensor4",
     version="0.0.3",
@@ -30,16 +31,20 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
 
-	url="https://github.com/podgorskiy/tensor4",
+    url="https://github.com/podgorskiy/tensor4",
 
     packages=setuptools.find_packages(),
 
-	classifiers=[
+    headers=["include/tensor4.h"],
+    
+    zip_safe=False,
+
+    classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.6',
-		'Topic :: Scientific/Engineering :: Artificial Intelligence',
-		'Programming Language :: C++',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'Programming Language :: C++',
     ],
 )
