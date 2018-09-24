@@ -11,7 +11,7 @@ OBJS=$(subst .cpp,.o,$(SRCS))
 all: alex_net_example
 
 alex_net_example: $(OBJS)
-	$(CXX) $(LDFLAGS) -o alex_net_example $(OBJS) $(LDLIBS) 
+	$(CXX) $(LDFLAGS) -o alexnet $(OBJS) $(LDLIBS) 
 
 tool.o: tool.cc support.hh
 
