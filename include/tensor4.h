@@ -895,7 +895,7 @@ namespace t4
 	inline tensor<T, 4> Conv2d(
 		  tensor<T, 4> in
 		, tensor<T, 4> kernel
-		, tensor<T, 1> bias)
+		, tensor<T, 1> bias = tensor<T, 1>())
 	{
 		T4_ScopeProfiler(Conv2d);
 		assert(channels(kernel) == channels(in));
@@ -1075,6 +1075,61 @@ namespace t4
 							}
 						}
 						dst[i * Wout + j] = maxval;
+					}
+				}
+			}
+		}
+		return out;
+	}
+
+
+	template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h = 1, int dilation_w = 1, typename T>
+	inline tensor<T, 4> AveragePool2d(tensor<T, 4> in)
+	{
+		T4_ScopeProfiler(MaxPool2d);
+		const int N = number(in);
+		const int C = channels(in);
+		const int Hin = height(in);
+		const int Win = width(in);
+
+		const int Hout = (Hin + 2 * pad_h - dilation_h * (kernel_h - 1) - 1) / stride_h + 1;
+		const int Wout = (Win + 2 * pad_w - dilation_w * (kernel_w - 1) - 1) / stride_w + 1;
+
+		tensor<T, 4> out = tensor<T, 4>::New({ N, C, Hout, Wout });
+
+		for (int n = 0; n < N; ++n)
+		{
+#pragma omp parallel for
+			for (int c = 0; c < C; ++c)
+			{
+				auto inSubtensor = in.Sub(n, c);
+				const T* __restrict src = inSubtensor.ptr();
+
+				auto outSubtensor = out.Sub(n, c);
+				T* __restrict dst = outSubtensor.ptr();
+
+				for (int i = 0; i < Hout; i++)
+				{
+					for (int j = 0; j < Wout; j++)
+					{
+						int start_h = i * stride_h - pad_h;
+						int start_w = j * stride_w - pad_w;
+
+						int end_h = std::min(start_h + (kernel_h - 1) * dilation_h + 1, Hin);
+						int end_w = std::min(start_w + (kernel_w - 1) * dilation_w + 1, Win);
+
+						start_h += ((std::max(-start_h, 0) + dilation_h - 1) / dilation_h) * dilation_h;
+						start_w += ((std::max(-start_w, 0) + dilation_w - 1) / dilation_w) * dilation_w;
+
+						T sum = 0;
+						for (int y = start_h; y < end_h; y += dilation_h)
+						{
+							for (int x = start_w; x < end_w; x += dilation_w)
+							{
+								sum += src[y * Win + x];
+							}
+						}
+						dst[i * Wout + j] = sum / (end_h - start_h) / (end_w - start_w);
 					}
 				}
 			}
