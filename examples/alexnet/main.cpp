@@ -18,7 +18,7 @@ int main()
 
 	input = (input - tmean) / tstd;
 
-	t4::tensor2f output = AlexNetForward(net, input);
+	t4::tensor2f output = t4::Softmax<1>(AlexNetForward(net, input));
 	
 	t4::tensor2i sorted = t4::Argsort(output).Flip();
 

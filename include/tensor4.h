@@ -48,7 +48,7 @@
 #include <omp.h>
 #endif
 
-#define T4_DO_TIME_PROFILING
+//#define T4_DO_TIME_PROFILING
 
 #ifdef T4_DO_TIME_PROFILING
 #define T4_ScopeProfiler(name) ::t4::ScopeProfiler scopeVar_##name(#name);

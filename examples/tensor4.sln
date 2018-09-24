@@ -9,6 +9,8 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
+		Release_plus_MKL|x64 = Release_plus_MKL|x64
+		Release_plus_MKL|x86 = Release_plus_MKL|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
@@ -16,6 +18,9 @@ Global
 		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Debug|x64.ActiveCfg = Debug|x64
 		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Debug|x64.Build.0 = Debug|x64
 		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Debug|x86.ActiveCfg = Debug|x64
+		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Release_plus_MKL|x64.ActiveCfg = Release_plus_MKL|x64
+		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Release_plus_MKL|x64.Build.0 = Release_plus_MKL|x64
+		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Release_plus_MKL|x86.ActiveCfg = Release_plus_MKL|x64
 		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Release|x64.ActiveCfg = Release|x64
 		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Release|x64.Build.0 = Release|x64
 		{49012AA8-91AB-4EE8-9EA2-AD2A818AFF71}.Release|x86.ActiveCfg = Release|x64
