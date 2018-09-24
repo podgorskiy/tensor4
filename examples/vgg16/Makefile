@@ -5,15 +5,15 @@ CPPFLAGS=-O3 -std=c++11 -flto -ffast-math -m64 -I "../../include/" -I "../common
 LDFLAGS=-O3
 LDLIBS=
 
-SRCS=AlexNet.cpp main.cpp
+SRCS=VGG.cpp main.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
 
-all: alex_net_example
+all: vgg16_example
 
-alex_net_example: $(OBJS)
-	$(CXX) $(LDFLAGS) -o alexnet $(OBJS) $(LDLIBS) 
+vgg16_example: $(OBJS)
+	$(CXX) $(LDFLAGS) -o vgg16 $(OBJS) $(LDLIBS) 
 
-AlexNet.o: AlexNet.cpp
+VGG.o: VGG.cpp
 
 main.o: main.cpp
 
