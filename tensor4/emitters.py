@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import var_table
+from . import var_table
 
 class EmitterException(Exception):
     def __init__(self, message):

@@ -13,14 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from trace_parser import Parser
-from emitters import emitters
-from var_table import VarTable
-import test_doc
+from .trace_parser import Parser
+from .emitters import emitters
+from .var_table import VarTable
 import struct
 import numpy as np
 import sys
 import torch
+import torch.onnx
+import torch.onnx.utils
 
 
 class GeneratorException(Exception):
@@ -30,7 +31,7 @@ class GeneratorException(Exception):
 
 def generate(module, args=tuple(), kwargs=None):
     def write(x, *args):
-        sys.stdout.write(x % args)
+        #sys.stdout.write(x % args)
         source.write(x % args)
 
     if kwargs is None:
@@ -40,7 +41,7 @@ def generate(module, args=tuple(), kwargs=None):
     trace, out = torch.jit.get_trace_graph(module, args, kwargs)
     trace = torch.onnx.utils._optimize_graph(trace.graph(), False)
 
-    print(str(trace))
+    #print(str(trace))
     p = Parser()
     result = p.parse(str(trace))
     if result is None:

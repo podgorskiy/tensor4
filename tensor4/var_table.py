@@ -15,7 +15,6 @@
 
 import struct
 import numpy as np
-import pickle
 
 
 class VarTable:
