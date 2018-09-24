@@ -27,6 +27,8 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
+#include <math.h>
 
 //#define USE_MKLDNN
 
@@ -89,6 +91,36 @@ namespace t4
 		std::chrono::high_resolution_clock::time_point m_startTime;
 	};
 
+	namespace memory
+	{
+		enum {
+			PAGE_4K = 4096,
+			BLOCK_SIZE = 128
+		};
+
+		void* aligned_malloc(size_t size, int alignment)
+		{
+#ifdef _MSC_VER
+			return _aligned_malloc(size, alignment);
+#elif __MINGW32__
+			return __mingw_aligned_malloc(size, alignment);
+#else
+			void* ptr = nullptr;
+			int result = posix_memalign(&ptr, alignment, size);
+			return (result == 0) ? ptr : nullptr;
+#endif
+		}
+
+		void aligned_free(void *p)
+		{
+#ifdef _MSC_VER
+			_aligned_free(p);
+#else
+			free(p);
+#endif
+		}
+	}
+
 	// Templated class for remresenting n-dimentional tensor
 	// template args:
 	//     T - datatype. Should be any of: float, double, int, int64_t, int32_t, int16_t
@@ -96,7 +128,7 @@ namespace t4
 	template<typename T, int D>
 	class tensor
 	{
-		template<typename T, int D2>
+		template<typename T2, int D2>
 		friend class tensor;
 	public:
 		enum
@@ -398,34 +430,6 @@ namespace t4
 	typedef tensor<int64, 2> tensor2i;
 	typedef tensor<int64, 1> tensor1i;
 
-	namespace memory
-	{
-		enum {
-			PAGE_4K = 4096,
-			BLOCK_SIZE = 128
-		};
-
-		void* aligned_malloc(size_t size, int alignment)
-		{
-#ifdef _WIN32
-			return _aligned_malloc(size, alignment);
-#else
-			void* ptr = nullptr;
-			int result = posix_memalign(&ptr, alignment, size);
-			return (result == 0) ? ptr : nullptr;
-#endif
-		}
-
-		void aligned_free(void *p)
-		{
-#ifdef _WIN32
-			_aligned_free(p);
-#else
-			free(p);
-#endif
-		}
-	}
-
 	namespace data_loading
 	{
 		template<typename T>
@@ -565,7 +569,9 @@ namespace t4
 #ifdef _MSC_VER
 #pragma warning (push)
 #pragma warning (disable: 4996)
+#endif
 		FILE* file = fopen(filename.c_str(), "rb");
+#ifdef _MSC_VER
 #pragma warning ( pop )
 #endif
 		fseek(file, 0L, SEEK_END);
@@ -758,7 +764,7 @@ namespace t4
 		template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, typename T>
 		struct im2col_process_row
 		{
-			static void im2col_process_row::apply(T* __restrict dst, const T* __restrict src, int fh, int fw, int inputWidth, int inputHeight, int outputWidth, int outputHeight)
+			static void apply(T* __restrict dst, const T* __restrict src, int fh, int fw, int inputWidth, int inputHeight, int outputWidth, int outputHeight)
 			{
 				int start = (pad_w - fw * dilation_w + stride_w - 1) / stride_w;
 				int end = (inputWidth + pad_w - fw * dilation_w + stride_w - 1) / stride_w;
@@ -793,7 +799,7 @@ namespace t4
 		template<int kernel_h, int kernel_w, int stride_h, int stride_w, int dilation_h, int dilation_w, typename T>
 		struct im2col_process_row<kernel_h, kernel_w, stride_h, stride_w, 0, 0, dilation_h, dilation_w, T>
 		{
-			static void im2col_process_row::apply(T* __restrict dst, const T* __restrict src, int fh, int fw, int inputWidth, int inputHeight, int outputWidth, int outputHeight)
+			static void apply(T* __restrict dst, const T* __restrict src, int fh, int fw, int inputWidth, int inputHeight, int outputWidth, int outputHeight)
 			{
 				for (int y = 0; y < outputHeight; ++y)
 				{
@@ -961,8 +967,6 @@ namespace t4
 			free(AT);
 		}
 
-		memory::aligned_free(AT);
-
 		tensor<T, 4> out = tensor<T, 4>::New({ N, K, Hout, Wout });
 
 		if (bias.ptr() != nullptr)
@@ -977,7 +981,7 @@ namespace t4
 		}
 		{
 			T4_ScopeProfiler(ConvTranspose2d_col2im);
-			col2im<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(out.ptr(), columns, K, Wout, Hout, Win, Hin);
+			details::col2im<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(out.ptr(), columns, K, Wout, Hout, Win, Hin);
 		}
 		
 		return out;
@@ -1475,7 +1479,7 @@ namespace t4
 				mul *= invstd;
 
 				int64 i = 0;
-				for (int64 l = (int64)sin.size(); i < l - 4; i += 4)
+				for (int64 l = (int64)sub_in.size(); i < l - 4; i += 4)
 				{
 					dst[i + 0] = src[i + 0] * mul + add;
 					dst[i + 1] = src[i + 1] * mul + add;
@@ -1483,7 +1487,7 @@ namespace t4
 					dst[i + 3] = src[i + 3] * mul + add;
 				}
 
-				for (int64 l = (int64)sin.size(); i < l; ++i)
+				for (int64 l = (int64)sub_in.size(); i < l; ++i)
 				{
 					dst[i] = src[i] * mul + add;
 				}
@@ -1621,7 +1625,7 @@ namespace t4
 					}
 					nextline = false;
 
-					Printer<level - 1>::Print<T>(output, data + stride * i, indent + 1, width, shape + 1);
+					Printer<level - 1>::template Print<T>(output, data + stride * i, indent + 1, width, shape + 1);
 
 					if (i != *shape - 1)
 					{
@@ -1668,7 +1672,7 @@ namespace t4
 
 			if (tensor.size() != 0)
 			{
-				Printer<D>::Print<T>(stream, tensor.ptr(), indent, width, tensor.shape().data());
+				Printer<D>::template Print<T>(stream, tensor.ptr(), indent, width, tensor.shape().data());
 			}
 
 			stream << ")\n";
