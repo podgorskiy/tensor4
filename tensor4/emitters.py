@@ -96,7 +96,8 @@ class Emitter(object):
 
     def validate_arg_return_count(self, arg_count, return_count):
         assert (len(self.lhs) == return_count)
-        assert len(self.args) == arg_count, \
+        args_valid = len(self.args) == arg_count if isinstance(arg_count, int) else len(self.args) in arg_count
+        assert args_valid, \
             "%s: Expected %d arguments, but received %d" % (self.__class__.__name__, arg_count, len(self.args))
         for a in self.args:
             self.vtable.inc_ref_count(a)
@@ -141,9 +142,10 @@ class Conv(Emitter):
         Emitter.__init__(self, lhs, rhs, vtable)
         self.make_output_same_as_first_arg()
 
-        self.validate_arg_return_count(3, 1)
+        self.validate_arg_return_count([3, 2], 1)
         self.bind_arg_to_parameter('.weight', 1)
-        self.bind_arg_to_parameter('.bias', 2)
+        if len(self.args) == 3:
+            self.bind_arg_to_parameter('.bias', 2)
 
         self.append_parameter('kernel_shape', templated=True)
         self.append_parameter('strides', templated=True)
@@ -171,6 +173,20 @@ class MaxPool(Emitter):
         self.append_parameter('pads', templated=True, padding=True)
 
         self.name = "MaxPool%dd" % self.get_dim()
+
+
+class AveragePool(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        self.make_output_same_as_first_arg()
+
+        self.validate_arg_return_count(1, 1)
+
+        self.append_parameter('kernel_shape', templated=True)
+        self.append_parameter('strides', templated=True)
+        self.append_parameter('pads', templated=True, padding=True)
+
+        self.name = "AveragePool%dd" % self.get_dim()
 
 
 class Flatten(Emitter):
@@ -337,6 +353,7 @@ register(AtenExpand, 'aten::expand')
 register(Conv, 'onnx::Conv')
 register(ConvTranspose, 'onnx::ConvTranspose')
 register(MaxPool, 'onnx::MaxPool')
+register(AveragePool, 'onnx::AveragePool')
 register(Flatten, 'onnx::Flatten')
 register(Softmax, 'onnx::Softmax')
 register(Dropout, 'onnx::Dropout')
