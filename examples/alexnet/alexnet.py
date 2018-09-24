@@ -49,7 +49,7 @@ def main():
 
     im = (im - mean) / std
 
-    out = tensor4.generator.generate(alexnet, args=(im,))
+    out = tensor4.generate(alexnet, args=(im,))
     out = F.softmax(out, 1)
   
     out = out.detach().cpu().view(-1).numpy()
