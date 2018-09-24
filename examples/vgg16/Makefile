@@ -2,7 +2,7 @@ CC=gcc
 CXX=g++
 RM=rm -f
 CPPFLAGS=-O3 -std=c++11 -flto -ffast-math -fopenmp -m64 -I "../../include/" -I "../common/"
-LDFLAGS=-O3 -lgomp
+LDFLAGS=-lgomp
 LDLIBS=
 
 SRCS=VGG.cpp main.cpp
