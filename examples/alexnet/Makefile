@@ -1,7 +1,7 @@
 CC=gcc
 CXX=g++
 RM=rm -f
-CPPFLAGS=-O3 -std=c++11 -I "../../include/" -I "../common/"
+CPPFLAGS=-O3 -std=c++11 -m64 -I "../../include/" -I "../common/"
 LDFLAGS=-O3
 LDLIBS=
 
