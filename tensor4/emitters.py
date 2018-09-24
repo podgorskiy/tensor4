@@ -197,8 +197,16 @@ class Flatten(Emitter):
         self.vtable.set_var_type(self.output[0], dtype, 2)
         self.validate_arg_return_count(1, 1)
         self.append_parameter('axis', templated=True)
-
         self.name = "Flatten"
+
+
+class Concat(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        self.make_output_same_as_first_arg()
+        self.validate_arg_return_count(2, 1)
+        self.append_parameter('axis', templated=True)
+        self.name = "Concat"
 
 
 class Softmax(Emitter):
@@ -219,7 +227,6 @@ class Dropout(Emitter):
         self.make_output_same_as_first_arg()
         self.append_parameter('ratio', templated=False)
         self.validate_arg_return_count(1, 1)
-
         self.name = "Dropout"
 
 
@@ -355,6 +362,7 @@ register(ConvTranspose, 'onnx::ConvTranspose')
 register(MaxPool, 'onnx::MaxPool')
 register(AveragePool, 'onnx::AveragePool')
 register(Flatten, 'onnx::Flatten')
+register(Concat, 'onnx::Concat')
 register(Softmax, 'onnx::Softmax')
 register(Dropout, 'onnx::Dropout')
 register(Gemm, 'onnx::Gemm')
