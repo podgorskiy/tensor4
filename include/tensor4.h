@@ -1130,7 +1130,7 @@ namespace t4
 		return out;
 	}
 
-	template<unsigned int D>
+	template<size_t D>
 	inline std::array<int, D> BroadCastShape(const std::array<int, D>& a, const std::array<int, D>& b)
 	{
 		std::array<int, D> result;
@@ -1145,7 +1145,7 @@ namespace t4
 		return result;
 	}
 
-	template<unsigned int D>
+	template<size_t D>
 	inline std::array<int, 4> ExpandShape(const std::array<int, D>& x)
 	{
 		std::array<int, 4> out = {1, 1, 1, 1};
@@ -1156,7 +1156,7 @@ namespace t4
 		return out;
 	}
 
-	template<unsigned int D>
+	template<size_t D>
 	int64 ComputeWrappedIndex(int64 n, int64 c, int64 h, int64 w, const std::array<int, D>& s);
 
 	template<>
