@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vgg16", "vgg16\vgg16.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "resnet50", "resnet50\resnet50.vcxproj", "{BEF05CAA-5190-4DB2-AEC0-A1062D78008E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "densenet169", "densenet169\densenet169.vcxproj", "{133DA134-56D8-4D47-9388-FEC034CAE040}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -47,6 +49,15 @@ Global
 		{BEF05CAA-5190-4DB2-AEC0-A1062D78008E}.Release|x64.ActiveCfg = Release|x64
 		{BEF05CAA-5190-4DB2-AEC0-A1062D78008E}.Release|x64.Build.0 = Release|x64
 		{BEF05CAA-5190-4DB2-AEC0-A1062D78008E}.Release|x86.ActiveCfg = Release|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Debug|x64.ActiveCfg = Debug|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Debug|x64.Build.0 = Debug|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Debug|x86.ActiveCfg = Debug|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Release_plus_MKL|x64.ActiveCfg = Release_plus_MKL|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Release_plus_MKL|x64.Build.0 = Release_plus_MKL|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Release_plus_MKL|x86.ActiveCfg = Release_plus_MKL|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Release|x64.ActiveCfg = Release|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Release|x64.Build.0 = Release|x64
+		{133DA134-56D8-4D47-9388-FEC034CAE040}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
