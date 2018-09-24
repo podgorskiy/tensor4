@@ -98,7 +98,7 @@ namespace t4
 			BLOCK_SIZE = 128
 		};
 
-		void* aligned_malloc(size_t size, int alignment)
+		inline void* aligned_malloc(size_t size, int alignment)
 		{
 #ifdef _MSC_VER
 			return _aligned_malloc(size, alignment);
@@ -111,7 +111,7 @@ namespace t4
 #endif
 		}
 
-		void aligned_free(void *p)
+		inline void aligned_free(void *p)
 		{
 #ifdef _MSC_VER
 			_aligned_free(p);
@@ -146,12 +146,12 @@ namespace t4
 
 		// Creates a tensor of given shape and takes provided shared pointer. 
 		// If shared pointer is null, will initialize tensor with zeros
-		static tensor<T, D> New(const std::array<int, D>& shape, std::shared_ptr<T> data = nullptr)
+		static tensor<T, D> New(const std::array<int, D>& shape, std::shared_ptr<T> data = nullptr, int64 offset = 0)
 		{
 			tensor<T, D> t;
 			t.m_ptr = data;
 			t.m_shape = shape;
-			t.m_offset = 0;
+			t.m_offset = offset;
 			if (data == nullptr)
 			{
 				t.m_ptr.reset(new T[(size_t)t.size()]);
@@ -255,6 +255,17 @@ namespace t4
 			}
 			t.m_offset = m_offset + n1 * t.size() * m_shape[1] + n2 * t.size();
 			return t;
+		}
+
+		tensor<T, D + 1> expand()
+		{
+			std::array<int, D + 1> new_shape;
+			new_shape[0] = 1;
+			for (int i = 0; i < D; ++i)
+			{
+				new_shape[i + 1] = m_shape[i];
+			}
+			return tensor<T, D + 1>::New(new_shape, m_ptr, m_offset);
 		}
 
 		// Returns a new tensor of the indices that would sort an array along the given axis.
@@ -388,31 +399,31 @@ namespace t4
 	};
 
 	template<typename T, int D>
-	int width(const tensor<T, D>& t)
+	inline int width(const tensor<T, D>& t)
 	{
 		return t.shape()[D - 1];
 	}
 
 	template<typename T, int D>
-	int height(const tensor<T, D>& t)
+	inline int height(const tensor<T, D>& t)
 	{
 		return t.shape()[D - 2];
 	}
 
 	template<typename T, int D>
-	int channels(const tensor<T, D>& t)
+	inline int channels(const tensor<T, D>& t)
 	{
 		return t.shape()[1];
 	}
 
 	template<typename T, int D>
-	int number(const tensor<T, D>& t)
+	inline int number(const tensor<T, D>& t)
 	{
 		return t.shape()[0];
 	}
 
 	template<typename T, int D>
-	tensor<int64, D> Argsort(const tensor<T, D>& x, int axis = -1)
+	inline tensor<int64, D> Argsort(const tensor<T, D>& x, int axis = -1)
 	{
 		return x.Argsort(axis);
 	}
@@ -433,44 +444,44 @@ namespace t4
 	namespace data_loading
 	{
 		template<typename T>
-		bool check_type(const std::string& str)
+		inline bool check_type(const std::string& str)
 		{
 			return false;
 		}
 
 		template<>
-		bool check_type<float>(const std::string& str)
+		inline bool check_type<float>(const std::string& str)
 		{
 			return str == "float";
 		}
 
 		template<>
-		bool check_type<double>(const std::string& str)
+		inline bool check_type<double>(const std::string& str)
 		{
 			return str == "doubl";
 		}
 
 		template<>
-		bool check_type<int32_t>(const std::string& str)
+		inline bool check_type<int32_t>(const std::string& str)
 		{
 			return str == "int32";
 		}
 
 		template<>
-		bool check_type<int16_t>(const std::string& str)
+		inline bool check_type<int16_t>(const std::string& str)
 		{
 			return str == "int16";
 		}
 
 		// Reinterpret cast of shared pointer
 		template< class T, class U >
-		std::shared_ptr<T> reinterpret_pointer_cast(const std::shared_ptr<U>& r)
+		inline std::shared_ptr<T> reinterpret_pointer_cast(const std::shared_ptr<U>& r)
 		{
 			auto p = reinterpret_cast<typename std::shared_ptr<T>::element_type*>(r.get());
 			return std::shared_ptr<T>(r, p);
 		}
 
-		size_t get_size(const std::string& type)
+		inline size_t get_size(const std::string& type)
 		{
 			if (type == "float")
 			{
@@ -669,7 +680,7 @@ namespace t4
 		// B: K x N
 		// C: M x N
 		template<typename T>
-		void gemm_nn(int M, int N, int K, T* A, int LDA, T* B, int LDB, T* C, int LDC)
+		inline void gemm_nn(int M, int N, int K, T* A, int LDA, T* B, int LDB, T* C, int LDC)
 		{
 #ifdef USE_MKLDNN
 			float alpha = 1.0f;
@@ -705,7 +716,7 @@ namespace t4
 		}
 
 		template<typename T>
-		void gemm_nt(int M, int N, int K, T* A, int LDA, T* B, int LDB, T* C, int LDC)
+		inline void gemm_nt(int M, int N, int K, T* A, int LDA, T* B, int LDB, T* C, int LDC)
 		{
 #if T4_USE_OMP
 #pragma omp parallel for
@@ -1119,7 +1130,7 @@ namespace t4
 		return out;
 	}
 
-	template<int D>
+	template<unsigned int D>
 	inline std::array<int, D> BroadCastShape(const std::array<int, D>& a, const std::array<int, D>& b)
 	{
 		std::array<int, D> result;
@@ -1134,8 +1145,8 @@ namespace t4
 		return result;
 	}
 
-	template<int D>
-	std::array<int, 4> ExpandShape(const std::array<int, D>& x)
+	template<unsigned int D>
+	inline std::array<int, 4> ExpandShape(const std::array<int, D>& x)
 	{
 		std::array<int, 4> out = {1, 1, 1, 1};
 		for (int i = 0; i < D; ++i)
@@ -1145,29 +1156,29 @@ namespace t4
 		return out;
 	}
 
-	template<int D>
+	template<unsigned int D>
 	int64 ComputeWrappedIndex(int64 n, int64 c, int64 h, int64 w, const std::array<int, D>& s);
 
 	template<>
-	int64 ComputeWrappedIndex<4>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 4>& s)
+	inline int64 ComputeWrappedIndex<4>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 4>& s)
 	{
 		return (w % s[3]) + (h % s[2]) * s[3] + (c % s[1]) * s[3] * s[2] + (n % s[0]) * s[3] * s[2] * s[1];
 	}
 
 	template<>
-	int64 ComputeWrappedIndex<3>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 3>& s)
+	inline int64 ComputeWrappedIndex<3>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 3>& s)
 	{
 		return (w % s[2]) + (h % s[1]) * s[2] + (c % s[0]) * s[2] * s[1];
 	}
 
 	template<>
-	int64 ComputeWrappedIndex<2>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 2>& s)
+	inline int64 ComputeWrappedIndex<2>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 2>& s)
 	{
 		return (w % s[1]) + (h % s[0]) * s[1];
 	}
 
 	template<>
-	int64 ComputeWrappedIndex<1>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 1>& s)
+	inline int64 ComputeWrappedIndex<1>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 1>& s)
 	{
 		return (w % s[0]);
 	}
@@ -1512,19 +1523,19 @@ namespace t4
 	namespace printing
 	{
 		template<typename T>
-		bool isfinite(const T& x)
+		inline bool isfinite(const T& x)
 		{
 			return true;
 		}
 		
 		template<>
-		bool isfinite(const float& x)
+		inline bool isfinite(const float& x)
 		{
 			return std::isfinite(x);
 		}
 		
 		template<>
-		bool isfinite(const double& x)
+		inline bool isfinite(const double& x)
 		{
 			return std::isfinite(x);
 		}
@@ -1680,7 +1691,7 @@ namespace t4
 	}
 
 	template<typename T, int D>
-	std::ostream& operator << (std::ostream& output, const tensor<T, D>& t)
+	inline std::ostream& operator << (std::ostream& output, const tensor<T, D>& t)
 	{
 		printing::PrintTensor(output, t);
 		return output;

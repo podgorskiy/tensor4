@@ -14,7 +14,7 @@
 namespace image_io
 {
 	void imwrite(t4::tensor3f in, const char* filename);
-	t4::tensor3 imread(const char* filename);
+	t4::tensor3f imread(const char* filename);
 
 	namespace details
 	{
@@ -97,7 +97,7 @@ namespace image_io
 		delete[] data_HWCf;
 		free(data_HWC);
 	
-		t4::tensor3f input = t4::tensor4f::New({ 3, y, x }, data);
+		t4::tensor3f input = t4::tensor3f::New({ 3, y, x }, data);
 		delete[] data;
 		return input;
 	}
