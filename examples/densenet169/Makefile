@@ -8,7 +8,7 @@ LDLIBS=
 SRCS=DenseNet.cpp main.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
 
-all: resnet50_example
+all: densenet169_example
 
 densenet169_example: $(OBJS)
 	$(CXX) $(LDFLAGS) -o densenet169 $(OBJS) $(LDLIBS) 
