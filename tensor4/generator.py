@@ -30,9 +30,12 @@ class GeneratorException(Exception):
 
 
 def generate(module, args=tuple(), kwargs=None):
-    def write(x, *args):
+    def write_h(x, *args):
+        source_h.write(x % args)
+        
+    def write_cpp(x, *args):
         #sys.stdout.write(x % args)
-        source.write(x % args)
+        source_cpp.write(x % args)
 
     if kwargs is None:
         kwargs = {}
@@ -50,6 +53,7 @@ def generate(module, args=tuple(), kwargs=None):
     inputs, statements, return_vars = result
 
     vtable = VarTable(module)
+    module_name = module.__class__.__name__
 
     # assign types for input vars
     for var_name, var_type, var_init in inputs:
@@ -65,10 +69,11 @@ def generate(module, args=tuple(), kwargs=None):
         e = emitters[op](lhs, rhs, vtable)
         emitter_list.append(e)
 
-    with open("source_.cpp", "w") as source:
-        write('#include "t4.h"' + '\n' * 3)
+    with open(module_name + ".cpp", "w") as source_cpp, open(module_name + ".h", "w") as source_h:
+        write_h('#include "tensor4.h"' + '\n' * 3)
+        write_cpp('#include "%s"' % (module_name + ".h") + '\n' * 3)
 
-        write('struct %s\n{\n' % vtable.class_name)
+        write_h('struct %s\n{\n' % vtable.class_name)
 
         arguments = []
 
@@ -78,49 +83,56 @@ def generate(module, args=tuple(), kwargs=None):
 
                 decl_str = "\t%s %s;\n" % (vtable.get_var_type(var_name), var_cname)
 
-                write(decl_str)
+                write_h(decl_str)
             else:
                 arguments.append(var_name)
 
-        write('};' + '\n' * 3)
+        write_h('};' + '\n' * 3)
 
-        write('%s %sLoad(const char* filename)\n{\n', vtable.class_name, vtable.class_name)
-        write('\t%s ctx;\n', vtable.class_name)
-        write('\tt4::model_dict dict = t4::load(filename);\n')
+        declaration = '%s %sLoad(const char* filename)' % (vtable.class_name, vtable.class_name)
+        write_h(declaration + ";\n\n")
+        write_cpp(declaration + "\n{\n")
+        write_cpp('\t%s ctx;\n', vtable.class_name)
+        write_cpp('\tt4::model_dict dict = t4::load(filename);\n')
 
         for var_name, var_type, var_init in inputs:
             if var_name in vtable.init_list:
                 var_cname = vtable.to_c_name(var_name)
                 string = "\tdict.load(%s, \"%s\", %s);\n" % (var_cname, vtable.init_list[var_name][0], ', '.join([str(p) for p in var_init]))
 
-                write(string)
+                write_cpp(string)
 
-        write('\treturn ctx;\n}' + '\n' * 3)
+        write_cpp('\treturn ctx;\n}' + '\n' * 3)
 
+        
         if len(return_vars) == 1:
-            write('%s ', vtable.get_var_type(return_vars[0]))
+            return_var = '%s ' % vtable.get_var_type(return_vars[0])
         else:
-            write('std::tuple<%s> ' % ', '.join([vtable.get_var_type(x) for x in return_vars]))
-
-        write('%sForward(const %s& ctx, %s)\n{\n',
+            return_var = 'std::tuple<%s> ' % ', '.join([vtable.get_var_type(x) for x in return_vars])
+        write_cpp(return_var)
+        write_h(return_var)
+        
+        declaration = '%sForward(const %s& ctx, %s)' % (
               vtable.class_name, vtable.class_name, ', '.join([vtable.get_var_type(x) + ' ' + vtable.to_c_name(x) for x in arguments]))
+        write_h(declaration + ';\n')
+        write_cpp(declaration + '\n{\n')
 
         for e in emitter_list:
             string = e.emit()
             if string is not None:
-                write('\t%s', string)
+                write_cpp('\t%s', string)
             free_list = vtable.get_clean_list()
             if len(free_list) > 0:
-                write("\tt4::free(")
+                write_cpp("\tt4::free(")
                 string = ", ".join([vtable.to_c_name(x) for x in free_list])
-                write("%s);\n", string)
+                write_cpp("%s);\n", string)
 
         if len(return_vars) == 1:
-            write('\treturn %s;\n', vtable.to_c_name(return_vars[0]))
+            write_cpp('\treturn %s;\n', vtable.to_c_name(return_vars[0]))
         else:
-            write('\treturn std::make_tuple(%s);\n' % ', '.join([vtable.to_c_name(x) for x in return_vars]))
+            write_cpp('\treturn std::make_tuple(%s);\n' % ', '.join([vtable.to_c_name(x) for x in return_vars]))
 
-        write('}\n')
+        write_cpp('}\n')
 
         vtable.write_blob(vtable.class_name + '.bin')
 
