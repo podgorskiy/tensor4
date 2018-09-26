@@ -14,6 +14,7 @@
 namespace image_io
 {
 	void imwrite(t4::tensor3f in, const char* filename);
+
 	t4::tensor3f imread(const char* filename);
 
 	namespace details

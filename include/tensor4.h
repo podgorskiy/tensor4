@@ -137,33 +137,59 @@ namespace t4
 		};
 
 		// Creates a tensor of given shape and copies data from provided raw data pointer
-		static tensor<T, D> New(const std::array<int, D>& shape, T* data)
+		static tensor<T, D> New(const std::array<int, D>& shape, T* data, bool create_copy = true)
 		{
-			tensor<T, D> t = New(shape);
-			memcpy(t.ptr(), data, (size_t)t.size()* sizeof(T));
+			tensor<T, D> t;
+			t.m_shape = shape;
+			t.m_offset = 0;
+			if (create_copy)
+			{
+				t.m_ptr.reset(new T[(size_t)t.size()]);
+				memcpy(t.ptr(), data, (size_t)t.size() * sizeof(T));
+			}
+			else
+			{
+				t.m_ptr.reset(data, [](auto p) {});
+			}
 			return t;
 		}
 
 		// Creates a tensor of given shape and takes provided shared pointer. 
-		// If shared pointer is null, will initialize tensor with zeros
-		static tensor<T, D> New(const std::array<int, D>& shape, std::shared_ptr<T> data = nullptr, int64 offset = 0)
+		static tensor<T, D> New(const std::array<int, D>& shape, std::shared_ptr<T> data, int64 offset = 0)
 		{
 			tensor<T, D> t;
 			t.m_ptr = data;
 			t.m_shape = shape;
 			t.m_offset = offset;
-			if (data == nullptr)
-			{
-				t.m_ptr.reset(new T[(size_t)t.size()]);
-				memset(t.ptr(), 0, (size_t)t.size() * sizeof(T));
-			}
+			t.m_ptr = data;
+			return t;
+		}
+
+		// Creates a tensor of given shape and allocates data for the new tensor.
+		// If zero_initialize is true, will also zeroinitialize it.
+		static tensor<T, D> New(const std::array<int, D>& shape)
+		{
+			tensor<T, D> t;
+			t.m_shape = shape;
+			t.m_offset = 0;
+			t.m_ptr.reset(new T[(size_t)t.size()]);
+			//memset(t.ptr(), 0, (size_t)t.size() * sizeof(T));
+			return t;
+		}
+
+		// Creates a tensor of given shape and allocates data for the new tensor.
+		// If zero_initialize is true, will also zeroinitialize it.
+		static tensor<T, D> Zeros(const std::array<int, D>& shape)
+		{
+			tensor<T, D> t = New(shape);
+			memset(t.ptr(), 0, (size_t)t.size() * sizeof(T));
 			return t;
 		}
 
 		// Creates a new tensor with the shape of this tensor.
 		tensor<T, D> SameAs() const
 		{
-			return New(shape(), new T[(size_t)size()]);
+			return New(shape());
 		}
 
 		// Fills tensor with specified value.
@@ -747,7 +773,7 @@ namespace t4
 			static void strided(T* __restrict dst, const T* __restrict src, int count)
 			{
 				int x = 0;
-				for (x = 0; x < count; x += 4)
+				for (x = 0; x < count - 4; x += 4)
 				{
 					memcpy(dst + x + 0, src + (x + 0) * src_stride, sizeof(T));
 					memcpy(dst + x + 1, src + (x + 1) * src_stride, sizeof(T));
@@ -915,10 +941,11 @@ namespace t4
 
 		details::im2col<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(columns, in.ptr(), channels(in), Win, Hin, Wout, Hout);
 
-		tensor<T, 4> out = tensor<T, 4>::New({ N, K, Hout, Wout });
+		tensor<T, 4> out;
 
 		if (bias.ptr() != nullptr)
 		{
+			out = tensor<T, 4>::New({ N, K, Hout, Wout });
 			T* pbias = bias.ptr();
 			for (int n = 0; n < N; ++n)
 			{
@@ -929,6 +956,10 @@ namespace t4
 					t.Fill(pbias[c]);
 				}
 			}
+		}
+		else
+		{
+			out = tensor<T, 4>::Zeros({ N, K, Hout, Wout });
 		}
 
 		{
@@ -978,17 +1009,24 @@ namespace t4
 			free(AT);
 		}
 
-		tensor<T, 4> out = tensor<T, 4>::New({ N, K, Hout, Wout });
+		tensor<T, 4> out;
 
 		if (bias.ptr() != nullptr)
 		{
+			out = tensor<T, 4>::New({ N, K, Hout, Wout });
 			T* pbias = bias.ptr();
 			for (int n = 0; n < N; ++n)
+			{
 				for (int c = 0; c < K; ++c)
 				{
 					tensor<T, 2> t = out.Sub(n, c);
 					t.Fill(pbias[c]);
 				}
+			}
+		}
+		else
+		{
+			out = tensor<T, 2>::Zeros({ N, K, Hout, Wout });
 		}
 		{
 			T4_ScopeProfiler(ConvTranspose2d_col2im);
@@ -1011,13 +1049,18 @@ namespace t4
 		const int Inputs = width(weight);
 		const int Outputs = height(weight);
 
-		tensor<T, 2> out = tensor<T, 2>::New({ N, Outputs });
+		tensor<T, 2> out;
 		if (bias.ptr() != nullptr)
 		{
+			out = tensor<T, 2>::New({ N, Outputs });
 			for (int n = 0; n < N; ++n)
 			{
 				out.Sub(n).Assign(bias);
 			}
+		}
+		else
+		{
+			out = tensor<T, 2>::Zeros({ N, Outputs });
 		}
 
 		details::gemm_nt(N, Outputs, Inputs, in.ptr(), Inputs, weight.ptr(), Inputs, out.ptr(), Outputs);
@@ -1156,7 +1199,7 @@ namespace t4
 		, int p_x3_end)
 	{
 		T4_ScopeProfiler(Pad);
-		tensor<T, 4> out = tensor<T, 4>::New(
+		tensor<T, 4> out = tensor<T, 4>::Zeros(
 		{ 
 			number(in) + p_x0_begin + p_x0_end,
 			channels(in) + p_x1_begin + p_x1_end,
@@ -1559,6 +1602,57 @@ namespace t4
 				}
 			}
 		}
+		return out;
+	}
+
+	template<int axis=-1, typename T, int D>
+	inline tensor<T, D> Concat(const tensor<T, D>& a, const tensor<T, D>& b)
+	{
+		T4_ScopeProfiler(Softmax);
+		static_assert(axis == -1 || axis < D, "Wrong axis.");
+		int _axis = (axis == -1) ? D - 1 : axis;
+
+		int64 elementCountA = a.size();
+		int64 elementCountB = b.size();
+
+		std::array<int, D> result_shape;
+
+		for (int i = 0; i < D; ++i)
+		{
+			if (i == axis)
+			{
+				result_shape[i] = a.shape()[i] + b.shape()[i];
+			}
+			else
+			{
+				assert(a.shape()[i] == b.shape()[i]);
+				result_shape[i] = a.shape()[i];
+			}
+		}
+
+		int64 blockCount = 1;
+
+		for (int i = 0; i < axis; ++i)
+		{
+			blockCount *= a.shape()[i];
+		}
+
+		int64 strideA = elementCountA / blockCount;
+		int64 strideB = elementCountB / blockCount;
+		int64 strideR = strideA + strideB;
+
+		tensor<T, D> out = tensor<T, D>::New(result_shape);
+
+		T* __restrict dst = out.ptr();
+		const T* __restrict srcA = a.ptr();
+		const T* __restrict srcB = b.ptr();
+
+		for (int64 i = 0; i < blockCount; ++i)
+		{
+			memcpy(dst + strideR * i, srcA + strideA * i, sizeof(T) * strideA);
+			memcpy(dst + strideR * i + strideA, srcB + strideB * i, sizeof(T) * strideB);
+		}
+
 		return out;
 	}
 
