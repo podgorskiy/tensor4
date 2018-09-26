@@ -656,7 +656,7 @@ namespace t4
 	namespace details
 	{
 		template<typename T>
-		inline void do_block(int LDA, int LDB, int LDC, int M, int N, int K, T* __restrict A, T* __restrict B, T* __restrict C, T* __restrict Bcopy)
+		inline void do_block(int LDA, int LDB, int LDC, int M, int N, int K, const T* __restrict A, const T* __restrict B, T* __restrict C, T* __restrict Bcopy)
 		{
 			int j, l, i;
 			for (j = 0; j < N; ++j)
@@ -667,7 +667,7 @@ namespace t4
 				}
 				for (i = 0; i < M; ++i)
 				{
-					T* __restrict _A = A + i * LDA;
+					const T* __restrict _A = A + i * LDA;
 					register float cij = C[j + i * LDC];
 					for (l = 0; l < K; ++l)
 					{
@@ -679,7 +679,7 @@ namespace t4
 		}
 
 		template<typename T>
-		inline void do_block_nt(int LDA, int LDB, int LDC, int M, int N, int K, T* __restrict A, T* __restrict B, T* __restrict C)
+		inline void do_block_nt(int LDA, int LDB, int LDC, int M, int N, int K, const T* __restrict A, const T* __restrict B, T* __restrict C)
 		{
 			int j, l, i;
 			for (j = 0; j < N; ++j)
@@ -706,7 +706,7 @@ namespace t4
 		// B: K x N
 		// C: M x N
 		template<typename T>
-		inline void gemm_nn(int M, int N, int K, T* A, int LDA, T* B, int LDB, T* C, int LDC)
+		inline void gemm_nn(int M, int N, int K, const T* A, int LDA, const T* B, int LDB, T* C, int LDC)
 		{
 #ifdef USE_MKLDNN
 			float alpha = 1.0f;
@@ -742,7 +742,7 @@ namespace t4
 		}
 
 		template<typename T>
-		inline void gemm_nt(int M, int N, int K, T* A, int LDA, T* B, int LDB, T* C, int LDC)
+		inline void gemm_nt(int M, int N, int K, const T* A, int LDA, const T* B, int LDB, T* C, int LDC)
 		{
 #if T4_USE_OMP
 #pragma omp parallel for
@@ -920,8 +920,8 @@ namespace t4
 	template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, typename T>
 	inline tensor<T, 4> Conv2d(
 		  tensor<T, 4> in
-		, tensor<T, 4> kernel
-		, tensor<T, 1> bias = tensor<T, 1>())
+		, const tensor<T, 4> kernel
+		, const tensor<T, 1> bias = tensor<T, 1>())
 	{
 		T4_ScopeProfiler(Conv2d);
 		assert(channels(kernel) == channels(in));
@@ -946,7 +946,7 @@ namespace t4
 		if (bias.ptr() != nullptr)
 		{
 			out = tensor<T, 4>::New({ N, K, Hout, Wout });
-			T* pbias = bias.ptr();
+			const T* pbias = bias.ptr();
 			for (int n = 0; n < N; ++n)
 			{
 				#pragma omp parallel for
@@ -992,7 +992,7 @@ namespace t4
 		const int Hout = (Hin - 1) * stride_h - 2 * pad_h + dilation_h * (kernel_h - 1) + 1;
 		const int Wout = (Win - 1) * stride_w - 2 * pad_w + dilation_w * (kernel_w - 1) + 1;
 		
-		T* columns = new T[K * kernel_h * kernel_w * Hin * Win];
+		T* __restrict columns = (T*)malloc(sizeof(T) * K * kernel_h * kernel_w * Hin * Win);
 		memset(columns, 0, K * kernel_h * kernel_w * Hin * Win * sizeof(T));
 
 		{
@@ -1032,6 +1032,8 @@ namespace t4
 			T4_ScopeProfiler(ConvTranspose2d_col2im);
 			details::col2im<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(out.ptr(), columns, K, Wout, Hout, Win, Hin);
 		}
+
+		free(columns);
 		
 		return out;
 	}
@@ -1556,14 +1558,19 @@ namespace t4
 	}
 
 	template<typename T>
-	inline tensor<T, 4> BatchNormalization(tensor<T, 4> in, tensor<T, 1> weight, tensor<T, 1> bias, tensor<T, 1> running_mean, tensor<T, 1> running_var, float epsilon = 0.0f)
+	inline tensor<T, 4> BatchNormalization(tensor<T, 4> in, 
+		const tensor<T, 1> weight, 
+		const tensor<T, 1> bias, 
+		const tensor<T, 1> running_mean, 
+		const tensor<T, 1> running_var, 
+		float epsilon = 0.0f)
 	{
 		T4_ScopeProfiler(BatchNormalization);
 		tensor<T, 4> out = in.SameAs();
-		T* __restrict bias_ptr = bias.ptr();
-		T* __restrict weight_ptr = weight.ptr();
-		T* __restrict running_mean_ptr = running_mean.ptr();
-		T* __restrict running_var_ptr = running_var.ptr();
+		const T* __restrict bias_ptr = bias.ptr();
+		const T* __restrict weight_ptr = weight.ptr();
+		const T* __restrict running_mean_ptr = running_mean.ptr();
+		const T* __restrict running_var_ptr = running_var.ptr();
 
 		for (int n = 0; n < number(in); ++n)
 		{
