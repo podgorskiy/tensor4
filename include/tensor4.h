@@ -55,7 +55,6 @@
 #else
 #define T4_ScopeProfiler(X)
 #endif
-#define T4_ScopeProfiler(X)
 
 #ifdef _MSC_VER
 #define T4_Pragma(X) __pragma(X)
@@ -817,12 +816,13 @@ namespace t4
 						{
 							memset(dst + y * outputWidth, 0, sizeof(T)*(size_t)start);
 						}
+
+						memcpy_extended<stride_w, T>::strided(dst + y * outputWidth + start_clipped, src + input_y * inputWidth + start_clipped * stride_w + fw * dilation_w - pad_w, end_clipped - start_clipped);
+
 						if (end < outputWidth)
 						{
 							memset(dst + y * outputWidth + end, 0, sizeof(T)*(size_t)(outputWidth - end));
 						}
-
-						memcpy_extended<stride_w, T>::strided(dst + y * outputWidth + start_clipped, src + input_y * inputWidth + start_clipped * stride_w + fw * dilation_w - pad_w, end_clipped - start_clipped);
 					}
 					else
 					{
@@ -937,37 +937,28 @@ namespace t4
 		const int Wout = (Win + 2 * pad_w - dilation_w * (kernel_w - 1) - 1) / stride_w + 1;
 
 		T* __restrict columns = nullptr;
-		{
-			T4_ScopeProfiler(malloc_columns);
-			columns = (T*)malloc(C * kernel_h * kernel_w * Hout * Wout * sizeof(T));
-		}
+		columns = (T*)malloc(C * kernel_h * kernel_w * Hout * Wout * sizeof(T));
 
-		{
-			T4_ScopeProfiler(im2col);
-			details::im2col<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(columns, in.ptr(), channels(in), Win, Hin, Wout, Hout);
-		}
+		details::im2col<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(columns, in.ptr(), channels(in), Win, Hin, Wout, Hout);
 
 		tensor<T, 4> out;
 
+		if (bias.ptr() != nullptr)
 		{
-			T4_ScopeProfiler(pbias);
-			if (bias.ptr() != nullptr)
+			out = tensor<T, 4>::New({ N, K, Hout, Wout });
+			const T* pbias = bias.ptr();
+			for (int n = 0; n < N; ++n)
 			{
-				out = tensor<T, 4>::New({ N, K, Hout, Wout });
-				const T* pbias = bias.ptr();
-				for (int n = 0; n < N; ++n)
+				parallel_for(int c = 0; c < K; ++c)
 				{
-					parallel_for(int c = 0; c < K; ++c)
-					{
-						tensor<T, 2> t = out.Sub(n, c);
-						t.Fill(pbias[c]);
-					}
+					tensor<T, 2> t = out.Sub(n, c);
+					t.Fill(pbias[c]);
 				}
 			}
-			else
-			{
-				out = tensor<T, 4>::Zeros({ N, K, Hout, Wout });
-			}
+		}
+		else
+		{
+			out = tensor<T, 4>::Zeros({ N, K, Hout, Wout });
 		}
 
 		{
@@ -1935,4 +1926,7 @@ namespace t4
 	}
 }
 
+#ifdef T4_ScopeProfiler
+#undef T4_ScopeProfiler
+#endif
 #define T4_ScopeProfiler(name) ::t4::ScopeProfiler scopeVar_##name(#name);
