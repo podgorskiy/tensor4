@@ -119,13 +119,17 @@ def generate(module, args=tuple(), kwargs=None):
 
         for e in emitter_list:
             string = e.emit()
-            if string is not None:
-                write_cpp('\t%s', string)
             free_list = vtable.get_clean_list()
             if len(free_list) > 0:
+                if string is not None:
+                    string = string.replace('t4::Relu(', 't4::ReluInplace(')
+                    string = string.replace('t4::BatchNormalization(', 't4::BatchNormalizationInplace(')
+                    write_cpp('\t%s', string)
                 write_cpp("\tt4::release(")
                 string = ", ".join([vtable.to_c_name(x) for x in free_list])
                 write_cpp("%s);\n", string)
+            elif string is not None:
+                write_cpp('\t%s', string)
 
         if len(return_vars) == 1:
             write_cpp('\treturn %s;\n', vtable.to_c_name(return_vars[0]))

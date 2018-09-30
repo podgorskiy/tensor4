@@ -55,13 +55,22 @@
 #else
 #define T4_ScopeProfiler(X)
 #endif
+#define T4_ScopeProfiler(X)
+
+#ifdef _MSC_VER
+#define T4_Pragma(X) __pragma(X)
+#else
+#define T4_Pragma(X) _Pragma(#X)
+#endif
 
 #if T4_USE_OMP
 #define OMP_THREAD_ID omp_get_thread_num()
 #define OMP_MAX_THREADS omp_get_max_threads()
+#define parallel_for T4_Pragma(omp parallel for) for
 #else
 #define OMP_THREAD_ID 0
 #define OMP_MAX_THREADS 1
+#define parallel_for for
 #endif
 
 
@@ -80,11 +89,15 @@ namespace t4
 
 		~ScopeProfiler()
 		{
+			printf("%-20s: %8dus\n", m_name, GetTime());
+		};
+
+		int GetTime() const
+		{
 			auto diffrence = std::chrono::high_resolution_clock::now() - m_startTime;
 			unsigned long long diffrence_us = std::chrono::duration_cast<std::chrono::microseconds>(diffrence).count();
-			int d = static_cast<int>(diffrence_us);
-			printf("%-20s: %8dus\n", m_name, d);
-		};
+			return static_cast<int>(diffrence_us);
+		}
 
 	private:
 		const char* m_name;
@@ -173,7 +186,6 @@ namespace t4
 			t.m_shape = shape;
 			t.m_offset = 0;
 			t.m_ptr.reset(new T[(size_t)t.size()]);
-			//memset(t.ptr(), 0, (size_t)t.size() * sizeof(T));
 			return t;
 		}
 
@@ -321,10 +333,7 @@ namespace t4
 			const size_t size_per_thr = ((count * sizeof(int64) + memory::PAGE_4K - 1) / memory::PAGE_4K) * memory::PAGE_4K;
 			int64 *copy_buffers = (int64*)memory::aligned_malloc(threads_n * size_per_thr, memory::PAGE_4K);
 
-#if T4_USE_OMP
-#pragma omp parallel for
-#endif
-			for (int i = 0; i < sortInstances; ++i)
+			parallel_for(int i = 0; i < sortInstances; ++i)
 			{
 				int thread_id = OMP_THREAD_ID;
 				int64 *copy_buff = copy_buffers + size_per_thr / sizeof(T) * thread_id;
@@ -369,10 +378,7 @@ namespace t4
 			int64* dst = output.ptr();
 			const T* src = ptr();
 
-#if T4_USE_OMP
-#pragma omp parallel for
-#endif
-			for (int i = 0; i < flipInstances / stride; ++i)
+			parallel_for(int i = 0; i < flipInstances / stride; ++i)
 			{
 				T* dstp = dst + i * count * stride;
 				const T* srcp = src + i * count * stride;
@@ -385,7 +391,7 @@ namespace t4
 
 			return output;
 		}
-		
+
 		// Returns a raw pointer to the data
 		T* ptr()
 		{
@@ -720,10 +726,7 @@ namespace t4
 			const size_t size_per_thr = ((memory::BLOCK_SIZE * sizeof(T) + memory::PAGE_4K - 1) / memory::PAGE_4K) * memory::PAGE_4K;
 			T *copy_buffers = (T*)memory::aligned_malloc(threads_n * size_per_thr, memory::PAGE_4K);
 
-#if T4_USE_OMP
-#pragma omp parallel for
-#endif
-			for (int j = 0; j < N; j += memory::BLOCK_SIZE)
+			parallel_for(int j = 0; j < N; j += memory::BLOCK_SIZE)
 			{
 				int thread_id = OMP_THREAD_ID;
 
@@ -744,10 +747,7 @@ namespace t4
 		template<typename T>
 		inline void gemm_nt(int M, int N, int K, const T* A, int LDA, const T* B, int LDB, T* C, int LDC)
 		{
-#if T4_USE_OMP
-#pragma omp parallel for
-#endif
-			for (int j = 0; j < N; j += memory::BLOCK_SIZE)
+			parallel_for(int j = 0; j < N; j += memory::BLOCK_SIZE)
 			{
 				int _N = min(memory::BLOCK_SIZE, N - j);
 				for (int i = 0; i < M; i += memory::BLOCK_SIZE)
@@ -860,8 +860,7 @@ namespace t4
 			int64 channel_stride_out = (int64)outputHeight * outputWidth;
 			int column_size = channels * kernel_h * kernel_w;
 
-#pragma omp parallel for
-			for (int row = 0; row < column_size; ++row)
+			parallel_for(int row = 0; row < column_size; ++row)
 			{
 				int channel = row / kernel_h / kernel_w;
 				int fh = (row / kernel_w) % kernel_h;
@@ -888,7 +887,7 @@ namespace t4
 			int64 channel_stride_in = (int64)inputHeight * inputWidth;
 			int64 channel_stride_out = (int64)outputHeight * outputWidth;
 			int column_size = channels * kernel_h * kernel_w;
-			for (int row = 0; row < column_size; ++row)
+			parallel_for(int row = 0; row < column_size; ++row)
 			{
 				int channel = row / kernel_h / kernel_w;
 				int fh = (row / kernel_w) % kernel_h;
@@ -919,7 +918,7 @@ namespace t4
 
 	template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, typename T>
 	inline tensor<T, 4> Conv2d(
-		  tensor<T, 4> in
+		tensor<T, 4> in
 		, const tensor<T, 4> kernel
 		, const tensor<T, 1> bias = tensor<T, 1>())
 	{
@@ -937,29 +936,38 @@ namespace t4
 		const int Hout = (Hin + 2 * pad_h - dilation_h * (kernel_h - 1) - 1) / stride_h + 1;
 		const int Wout = (Win + 2 * pad_w - dilation_w * (kernel_w - 1) - 1) / stride_w + 1;
 
-		T* __restrict columns = (T*)malloc(C * kernel_h * kernel_w * Hout * Wout * sizeof(T));
+		T* __restrict columns = nullptr;
+		{
+			T4_ScopeProfiler(malloc_columns);
+			columns = (T*)malloc(C * kernel_h * kernel_w * Hout * Wout * sizeof(T));
+		}
 
-		details::im2col<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(columns, in.ptr(), channels(in), Win, Hin, Wout, Hout);
+		{
+			T4_ScopeProfiler(im2col);
+			details::im2col<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w>(columns, in.ptr(), channels(in), Win, Hin, Wout, Hout);
+		}
 
 		tensor<T, 4> out;
 
-		if (bias.ptr() != nullptr)
 		{
-			out = tensor<T, 4>::New({ N, K, Hout, Wout });
-			const T* pbias = bias.ptr();
-			for (int n = 0; n < N; ++n)
+			T4_ScopeProfiler(pbias);
+			if (bias.ptr() != nullptr)
 			{
-				#pragma omp parallel for
-				for (int c = 0; c < K; ++c)
+				out = tensor<T, 4>::New({ N, K, Hout, Wout });
+				const T* pbias = bias.ptr();
+				for (int n = 0; n < N; ++n)
 				{
-					tensor<T, 2> t = out.Sub(n, c);
-					t.Fill(pbias[c]);
+					parallel_for(int c = 0; c < K; ++c)
+					{
+						tensor<T, 2> t = out.Sub(n, c);
+						t.Fill(pbias[c]);
+					}
 				}
 			}
-		}
-		else
-		{
-			out = tensor<T, 4>::Zeros({ N, K, Hout, Wout });
+			else
+			{
+				out = tensor<T, 4>::Zeros({ N, K, Hout, Wout });
+			}
 		}
 
 		{
@@ -974,7 +982,7 @@ namespace t4
 
 	template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, typename T>
 	inline tensor<T, 4> ConvTranspose2d(
-		  tensor<T, 4> in
+		tensor<T, 4> in
 		, tensor<T, 4> kernel
 		, tensor<T, 1> bias)
 	{
@@ -985,13 +993,13 @@ namespace t4
 
 		const int N = number(in);
 		const int K = channels(kernel);
-		
+
 		const int Hin = height(in);
 		const int Win = width(in);
 
 		const int Hout = (Hin - 1) * stride_h - 2 * pad_h + dilation_h * (kernel_h - 1) + 1;
 		const int Wout = (Win - 1) * stride_w - 2 * pad_w + dilation_w * (kernel_w - 1) + 1;
-		
+
 		T* __restrict columns = (T*)malloc(sizeof(T) * K * kernel_h * kernel_w * Hin * Win);
 		memset(columns, 0, K * kernel_h * kernel_w * Hin * Win * sizeof(T));
 
@@ -1034,7 +1042,7 @@ namespace t4
 		}
 
 		free(columns);
-		
+
 		return out;
 	}
 
@@ -1085,8 +1093,7 @@ namespace t4
 
 		for (int n = 0; n < N; ++n)
 		{
-#pragma omp parallel for
-			for (int c = 0; c < C; ++c)
+			parallel_for(int c = 0; c < C; ++c)
 			{
 				auto inSubtensor = in.Sub(n, c);
 				const T* __restrict src = inSubtensor.ptr();
@@ -1144,8 +1151,7 @@ namespace t4
 
 		for (int n = 0; n < N; ++n)
 		{
-#pragma omp parallel for
-			for (int c = 0; c < C; ++c)
+			parallel_for(int c = 0; c < C; ++c)
 			{
 				auto inSubtensor = in.Sub(n, c);
 				const T* __restrict src = inSubtensor.ptr();
@@ -1202,7 +1208,7 @@ namespace t4
 	{
 		T4_ScopeProfiler(Pad);
 		tensor<T, 4> out = tensor<T, 4>::Zeros(
-		{ 
+		{
 			number(in) + p_x0_begin + p_x0_end,
 			channels(in) + p_x1_begin + p_x1_end,
 			height(in) + p_x2_begin + p_x2_end,
@@ -1248,7 +1254,7 @@ namespace t4
 	template<size_t D>
 	inline std::array<int, 4> ExpandShape(const std::array<int, D>& x)
 	{
-		std::array<int, 4> out = {1, 1, 1, 1};
+		std::array<int, 4> out = { 1, 1, 1, 1 };
 		for (int i = 0; i < D; ++i)
 		{
 			out[D - i - 1] = x[D - i - 1];
@@ -1302,6 +1308,22 @@ namespace t4
 		}\
 		return out;
 
+#define POINT_INPLACE(OP) \
+		T*  __restrict ptr = in.ptr(); \
+		int64 i = 0; \
+		for (int64 l = (int64)in.size(); i < l - 4; i += 4) \
+		{ \
+			{ T v = ptr[i + 0]; OP; ptr[i + 0] = out; }\
+			{ T v = ptr[i + 1]; OP; ptr[i + 1] = out; }\
+			{ T v = ptr[i + 2]; OP; ptr[i + 2] = out; }\
+			{ T v = ptr[i + 3]; OP; ptr[i + 3] = out; }\
+		} \
+		for (int64 l = (int64)in.size(); i < l; ++i) \
+		{ \
+			{ T v = ptr[i]; OP; ptr[i] = out; }\
+		}\
+		return in;
+
 #define POINT_WISE_BINARY(OP) \
 		if (a.shape() == b.shape())\
 		{\
@@ -1348,16 +1370,35 @@ namespace t4
 	template<typename T, int D>
 	inline tensor<T, D> LeakyRelu(const tensor<T, D>& in, float alpha)
 	{
-		float _alpha = alpha - 1.0f;
+		T4_ScopeProfiler(LeakyRelu);
 		POINT_WISE(
-			T out = ((v < 0) * _alpha + 1.0f) * v;
+			T out = (v < 0) ? alpha * v : v;
+		)
+	}
+
+	template<typename T, int D>
+	inline tensor<T, D> LeakyReluInplace(tensor<T, D>& in, float alpha)
+	{
+		T4_ScopeProfiler(LeakyReluInplace);
+		POINT_INPLACE(
+			T out = (v < 0) ? alpha * v : v;
 		)
 	}
 
 	template<typename T, int D>
 	inline tensor<T, D> Relu(const tensor<T, D>& in)
 	{
+		T4_ScopeProfiler(Relu);
 		POINT_WISE(
+			T out = (v > 0) ? v : T(0);
+		)
+	}
+	
+	template<typename T, int D>
+	inline tensor<T, D> ReluInplace(tensor<T, D>& in)
+	{
+		T4_ScopeProfiler(ReluInplace);
+		POINT_INPLACE(
 			T out = (v > 0) ? v : T(0);
 		)
 	}
@@ -1369,7 +1410,7 @@ namespace t4
 
 		template<typename T>
 		T exp_f(T x);
-		
+
 		template<>
 		inline float tanh_f<float>(float x)
 		{
@@ -1515,7 +1556,7 @@ namespace t4
 		return in;
 	}
 
-	template<int axis=-1, typename T, int D>
+	template<int axis = -1, typename T, int D>
 	inline tensor<T, D> Softmax(tensor<T, D> in)
 	{
 		T4_ScopeProfiler(Softmax);
@@ -1537,10 +1578,7 @@ namespace t4
 
 		T* dstPtr = output.ptr();
 
-#if T4_USE_OMP
-#pragma omp parallel for
-#endif
-		for (int i = 0; i < sortInstances; ++i)
+		parallel_for(int i = 0; i < sortInstances; ++i)
 		{
 			T* start = dstPtr + (i / stride) * count * stride + (i % stride);
 			T sum = T(0);
@@ -1558,11 +1596,11 @@ namespace t4
 	}
 
 	template<typename T>
-	inline tensor<T, 4> BatchNormalization(tensor<T, 4> in, 
-		const tensor<T, 1> weight, 
-		const tensor<T, 1> bias, 
-		const tensor<T, 1> running_mean, 
-		const tensor<T, 1> running_var, 
+	inline tensor<T, 4> BatchNormalization(const tensor<T, 4> in,
+		const tensor<T, 1> weight,
+		const tensor<T, 1> bias,
+		const tensor<T, 1> running_mean,
+		const tensor<T, 1> running_var,
 		float epsilon = 0.0f)
 	{
 		T4_ScopeProfiler(BatchNormalization);
@@ -1574,10 +1612,7 @@ namespace t4
 
 		for (int n = 0; n < number(in); ++n)
 		{
-#if T4_USE_OMP
-#pragma omp parallel for
-#endif
-			for (int c = 0; c < channels(in); ++c)
+			parallel_for(int c = 0; c < channels(in); ++c)
 			{
 				tensor<T, 2> sub_in = in.Sub(n, c);
 				tensor<T, 2> sub_out = out.Sub(n, c);
@@ -1612,7 +1647,53 @@ namespace t4
 		return out;
 	}
 
-	template<int axis=-1, typename T, int D>
+	template<typename T>
+	inline tensor<T, 4> BatchNormalizationInplace(tensor<T, 4> in,
+		const tensor<T, 1> weight,
+		const tensor<T, 1> bias,
+		const tensor<T, 1> running_mean,
+		const tensor<T, 1> running_var,
+		float epsilon = 0.0f)
+	{
+		const T* __restrict bias_ptr = bias.ptr();
+		const T* __restrict weight_ptr = weight.ptr();
+		const T* __restrict running_mean_ptr = running_mean.ptr();
+		const T* __restrict running_var_ptr = running_var.ptr();
+
+		for (int n = 0; n < number(in); ++n)
+		{
+			parallel_for(int c = 0; c < channels(in); ++c)
+			{
+				tensor<T, 2> sub = in.Sub(n, c);
+				T* __restrict src = sub.ptr();
+				T mul = weight_ptr[c];
+				T add = bias_ptr[c];
+
+				T mean = running_mean_ptr[c];
+				T invstd = 1.0f / sqrtf(running_var_ptr[c] + epsilon);
+
+				add -= mean * invstd * mul;
+				mul *= invstd;
+
+				int64 i = 0;
+				for (int64 l = (int64)sub.size(); i < l - 4; i += 4)
+				{
+					src[i + 0] = src[i + 0] * mul + add;
+					src[i + 1] = src[i + 1] * mul + add;
+					src[i + 2] = src[i + 2] * mul + add;
+					src[i + 3] = src[i + 3] * mul + add;
+				}
+
+				for (int64 l = (int64)sub.size(); i < l; ++i)
+				{
+					src[i] = src[i] * mul + add;
+				}
+			}
+		}
+		return in;
+	}
+
+	template<int axis = -1, typename T, int D>
 	inline tensor<T, D> Concat(const tensor<T, D>& a, const tensor<T, D>& b)
 	{
 		T4_ScopeProfiler(Concat);
@@ -1654,7 +1735,7 @@ namespace t4
 		const T* __restrict srcA = a.ptr();
 		const T* __restrict srcB = b.ptr();
 
-		for (int64 i = 0; i < blockCount; ++i)
+		parallel_for(int64 i = 0; i < blockCount; ++i)
 		{
 			memcpy(dst + strideR * i, srcA + strideA * i, sizeof(T) * strideA);
 			memcpy(dst + strideR * i + strideA, srcB + strideB * i, sizeof(T) * strideB);
@@ -1683,13 +1764,13 @@ namespace t4
 		{
 			return true;
 		}
-		
+
 		template<>
 		inline bool isfinite(const float& x)
 		{
 			return std::isfinite(x);
 		}
-		
+
 		template<>
 		inline bool isfinite(const double& x)
 		{
@@ -1738,7 +1819,7 @@ namespace t4
 			}
 			return width;
 		}
-		
+
 		inline void PrintIndent(std::ostream& stream, int indent)
 		{
 			for (int i = 0; i < indent; i++)
@@ -1853,3 +1934,5 @@ namespace t4
 		return output;
 	}
 }
+
+#define T4_ScopeProfiler(name) ::t4::ScopeProfiler scopeVar_##name(#name);
