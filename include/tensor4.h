@@ -1615,7 +1615,7 @@ namespace t4
 	template<int axis=-1, typename T, int D>
 	inline tensor<T, D> Concat(const tensor<T, D>& a, const tensor<T, D>& b)
 	{
-		T4_ScopeProfiler(Softmax);
+		T4_ScopeProfiler(Concat);
 		static_assert(axis == -1 || axis < D, "Wrong axis.");
 		int _axis = (axis == -1) ? D - 1 : axis;
 
@@ -1663,17 +1663,17 @@ namespace t4
 		return out;
 	}
 
-	template<typename T>
-	inline void free(T& x)
+	template<typename T, int D>
+	inline void release(tensor<T, D>& x)
 	{
-		x = T();
+		x = tensor<T, D>();
 	}
 
-	template<typename H, typename ...Ts>
-	inline void free(H& x, Ts... args)
+	template<typename T, int D, typename ...Ts>
+	inline void release(tensor<T, D>& x, Ts... args)
 	{
-		x = H();
-		free(args...);
+		x = tensor<T, D>();
+		release(args...);
 	}
 
 	namespace printing

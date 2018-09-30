@@ -123,7 +123,7 @@ def generate(module, args=tuple(), kwargs=None):
                 write_cpp('\t%s', string)
             free_list = vtable.get_clean_list()
             if len(free_list) > 0:
-                write_cpp("\tt4::free(")
+                write_cpp("\tt4::release(")
                 string = ", ".join([vtable.to_c_name(x) for x in free_list])
                 write_cpp("%s);\n", string)
 
