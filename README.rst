@@ -168,16 +168,16 @@ Pytorch output:
 
 .. code:: 
 
-  68.93524527549744% speedboat
-  23.621448874473572% amphibian, amphibious vehicle
-  2.8448225930333138% container ship, containership, container vessel
-  0.9315203875303268% fireboat
-  0.6246582139283419% lifeboat
-  0.5948384292423725% sandbar, sand bar
-  0.5268996115773916% submarine, pigboat, sub, U-boat
-  0.29215055983513594% canoe
-  0.26397909969091415% paddle, boat paddle
-  0.2638082019984722% trimaran
+  68.935245% speedboat
+  23.621449% amphibian, amphibious vehicle
+  2.844823% container ship, containership, container vessel
+  0.931520% fireboat
+  0.624658% lifeboat
+  0.594838% sandbar, sand bar
+  0.526899% submarine, pigboat, sub, U-boat
+  0.292150% canoe
+  0.263979% paddle, boat paddle
+  0.263808% trimaran
 
 The difference is due to differences of float point nubares rounding. 
 
