@@ -191,5 +191,7 @@ The difference is due to differences of float point nubares rounding.
 | tensor4 + MKL| 32.4ms            |
 +--------------+-------------------+
 
- tensor4 has a naive GEMM implementation, however you can enable using the one from MKL: cblas_sgemm.
 
+tensor4 has a naive GEMM implementation, however you can enable using the one from MKL: cblas_sgemm.
+
+Row *tensor4 + MKL* in the table above corresponds to the case, when instead of naive GEMM, MKL is used.
