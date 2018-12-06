@@ -144,6 +144,7 @@ How differently it runs compared to pytorch?
 -----
 
 For the case of AlexNet and test example:
+
 .. figure:: https://raw.githubusercontent.com/podgorskiy/tensor4/master/examples/common/alexnet224x224_input.png
    :alt: hello-world
 
