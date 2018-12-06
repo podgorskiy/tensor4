@@ -143,4 +143,23 @@ Also it produces a binary with weights.
 How differently it runs compared to pytorch?
 -----
 
+For the case of AlexNet and test example:
+.. figure:: https://raw.githubusercontent.com/podgorskiy/tensor4/master/examples/common/alexnet224x224_input.png
+   :alt: hello-world
+
+Predictions made by tensor4:
+
+.. code:: 
+
+  68.935448%: speedboat
+  23.621313%: amphibian, amphibious vehicle
+  2.844828%: container ship, containership, container vessel
+  0.931512%: fireboat
+  0.624658%: lifeboat
+  0.594834%: sandbar, sand bar
+  0.526897%: submarine, pigboat, sub, U-boat
+  0.292151%: canoe
+  0.263978%: paddle, boat paddle
+  0.263804%: trimaran
+
 
