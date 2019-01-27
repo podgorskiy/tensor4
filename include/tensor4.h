@@ -1,4 +1,4 @@
-// Copyright 2018 Stanislav Pidhorskyi.All Rights Reserved.
+// Copyright 2018-2019 Stanislav Pidhorskyi. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,13 +23,14 @@
 #include <algorithm>
 #include <limits>
 #include <map>
+#include <random>
 
 #include <malloc.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
 #include <math.h>
-
+#include <cmath>
 //#define USE_MKLDNN
 
 #ifdef USE_MKLDNN
@@ -161,7 +162,7 @@ namespace t4
 			}
 			else
 			{
-				t.m_ptr.reset(data, [](auto p) {});
+				t.m_ptr.reset(data, [](T* p) {});
 			}
 			return t;
 		}
@@ -194,6 +195,22 @@ namespace t4
 		{
 			tensor<T, D> t = New(shape);
 			memset(t.ptr(), 0, (size_t)t.size() * sizeof(T));
+			return t;
+		}
+
+		// Returns a tensor filled with random numbers from a normal distribution with mean 0 and variance 1
+		// Creates a tensor of given shape and allocates data for the new tensor.
+		static tensor<T, D> RandN(const std::array<int, D>& shape)
+		{
+			std::random_device rd{};
+			std::mt19937 gen{ rd() };
+			std::normal_distribution<T> distribution(T(0), T(1));
+			tensor<T, D> t = New(shape);
+			T* ptr = t.ptr();
+			for (int64 i = 0, l = t.size(); i < l; ++i)
+			{
+				ptr[i] = distribution(gen);
+			}
 			return t;
 		}
 
@@ -872,8 +889,7 @@ namespace t4
 				im2col_process_row<kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w, dilation_h, dilation_w, T>::apply(dst, src, fh, fw, inputWidth, inputHeight, outputWidth, outputHeight);
 			}
 		}
-
-
+		
 		template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, typename T>
 		inline void col2im(
 			T* __restrict output,
@@ -893,8 +909,8 @@ namespace t4
 				int fh = (row / kernel_w) % kernel_h;
 				int fw = row % kernel_w;
 
-				int start = (pad_w - fw * dilation_w + stride_w - 1) / stride_w;
-				int end = (inputWidth + pad_w - fw * dilation_w + stride_w - 1) / stride_w;
+				int start = std::max((pad_w - fw * dilation_w + stride_w - 1) / stride_w, 0);
+				int end = std::min((inputWidth + pad_w - fw * dilation_w + stride_w - 1) / stride_w, outputWidth);
 
 				T* __restrict dst = output + channel * channel_stride_in;
 				const T* __restrict src = input + row * channel_stride_out;
@@ -915,6 +931,7 @@ namespace t4
 			}
 		}
 	}
+	
 
 	template<int kernel_h, int kernel_w, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, typename T>
 	inline tensor<T, 4> Conv2d(
@@ -1004,7 +1021,7 @@ namespace t4
 				for (int j = 0; j < _K; ++j)
 					memcpy(AT + j + i * _K, A + i + j * _M, sizeof(T));
 
-			gemm_nn(K * kernel_h * kernel_w, Hin * Win, number(kernel), AT, _K, in.ptr(), Hin * Win, columns, Hin * Win);
+			details::gemm_nn(K * kernel_h * kernel_w, Hin * Win, number(kernel), AT, _K, in.ptr(), Hin * Win, columns, Hin * Win);
 			free(AT);
 		}
 
@@ -1025,7 +1042,7 @@ namespace t4
 		}
 		else
 		{
-			out = tensor<T, 2>::Zeros({ N, K, Hout, Wout });
+			out = tensor<T, 4>::Zeros({ N, K, Hout, Wout });
 		}
 		{
 			T4_ScopeProfiler(ConvTranspose2d_col2im);
