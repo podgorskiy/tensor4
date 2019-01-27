@@ -27,6 +27,7 @@
 
 #include <malloc.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <math.h>
@@ -690,7 +691,7 @@ namespace t4
 				for (i = 0; i < M; ++i)
 				{
 					const T* __restrict _A = A + i * LDA;
-					register float cij = C[j + i * LDC];
+					float cij = C[j + i * LDC];
 					for (l = 0; l < K; ++l)
 					{
 						cij += _A[l] * Bcopy[l];
@@ -1776,13 +1777,13 @@ namespace t4
 		template<>
 		inline bool isfinite(const float& x)
 		{
-			return std::isfinite(x);
+			return ::isfinite(x);
 		}
 
 		template<>
 		inline bool isfinite(const double& x)
 		{
-			return std::isfinite(x);
+			return ::isfinite(x);
 		}
 
 		template<typename T, int D>
@@ -1796,7 +1797,7 @@ namespace t4
 			for (int64 i = 0, l = tensor.size(); i < l; ++i)
 			{
 				T x = abs(src[i]);
-				if (std::isfinite(x))
+				if (isfinite(x))
 				{
 					max = x > max ? x : max;
 					min = x < min ? x : min;

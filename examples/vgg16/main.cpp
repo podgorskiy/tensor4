@@ -18,7 +18,12 @@ int main()
 
 	input = (input - tmean) / tstd;
 
-	t4::tensor2f output = t4::Softmax<1>(VGGForward(net, input));
+	t4::tensor2f output;
+	{
+		T4_ScopeProfiler(VGGForward);
+		output = VGGForward(net, input);
+	}
+	output = t4::Softmax<1>(output);
 	
 	t4::tensor2i sorted = t4::Argsort(output).Flip();
 
