@@ -34,7 +34,7 @@ class Parser:
         self.return_vars = None
         self.scope_type = ''
         self.scope_name = ''
-        self.types = ['Float', 'Dynamic', 'Long']
+        self.types = ['Float', 'Dynamic', 'Long', 'Tensor']
         self.statements = []
 
     def parse(self, text):
