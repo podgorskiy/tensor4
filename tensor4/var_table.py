@@ -31,7 +31,7 @@ class VarTable:
             ndim (int): number of dimentions. Range: [1..4]
         """
         assert(var[0] == '%')  # here 'var' is the name in %<number> format used in trace
-        type_letter = {'Float': 'f', 'Int': 'i', 'Double': 'd', '?': '?'}
+        type_letter = {'Float': 'f', 'Int': 'i', 'Double': 'd', '?': '?', 'Long': 'l'}
         self.var_types[var] = ("t4::tensor%d%s" % (ndim, type_letter[dtype]), ndim, dtype)
 
     def inc_ref_count(self, var):
@@ -40,6 +40,7 @@ class VarTable:
         if var not in self.ref_counts:
             self.ref_counts[var] = 0
         self.ref_counts[var] += 1
+        self.used_vars.add(var)
 
     def dec_ref_count(self, var):
         while var in self.alias:
@@ -54,6 +55,9 @@ class VarTable:
         for v in to_clean:
             del self.ref_counts[v]
         return to_clean
+
+    def is_var_used(self, var):
+        return var in self.used_vars or var in self.init_list or var in self.scalar_constants
 
     def get_var_type(self, var):
         """
@@ -203,6 +207,8 @@ class VarTable:
         self.var_types = {}
 
         self.ref_counts = {}
+
+        self.used_vars = set()
 
         # aliases for vars
         self.alias = {}

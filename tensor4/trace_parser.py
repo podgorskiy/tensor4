@@ -34,10 +34,11 @@ class Parser:
         self.return_vars = None
         self.scope_type = ''
         self.scope_name = ''
-        self.types = ['Float', 'Dynamic']
+        self.types = ['Float', 'Dynamic', 'Long']
         self.statements = []
 
     def parse(self, text):
+        #print(text)
         self.text = text + '\0'
         try:
             self.expect_graph()
@@ -106,19 +107,17 @@ class Parser:
     def accept_var_params(self):
         if self.accept_char('('):
             params = []
-            if self.accept_uint():
+            while self.accept_uint():
                 self.accept_char('!')
                 params.append(self.param)
-                while self.accept_char(','):
-                    if self.accept_uint():
-                        params.append(self.param)
-                        self.accept_char('!')
-                    else:
-                        return False
-                self.skip_spaces()
-                if self.accept_char(')'):
-                    self.param = params
-                    return True
+                if self.accept_char(','):
+                    self.skip_spaces()
+                    continue
+                break
+            self.skip_spaces()
+            if self.accept_char(')'):
+                self.param = params
+                return True
             return False
         return True
 

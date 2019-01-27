@@ -15,6 +15,7 @@
 
 from . import var_table
 
+
 class EmitterException(Exception):
     def __init__(self, message):
         self.message = message

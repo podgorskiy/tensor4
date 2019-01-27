@@ -22,6 +22,7 @@ import sys
 import torch
 import torch.onnx
 import torch.onnx.utils
+from torch.onnx import ONNX_ARCHIVE_MODEL_PROTO_NAME, ExportTypes, OperatorExportTypes
 
 
 class GeneratorException(Exception):
@@ -42,7 +43,7 @@ def generate(module, args=tuple(), kwargs=None):
     if not isinstance(args, tuple):
         args = (args,)
     trace, out = torch.jit.get_trace_graph(module, args, kwargs)
-    trace = torch.onnx.utils._optimize_graph(trace.graph(), False)
+    trace = torch.onnx.utils._optimize_graph(trace.graph(), OperatorExportTypes.ONNX)
 
     #print(str(trace))
     p = Parser()
@@ -77,6 +78,8 @@ def generate(module, args=tuple(), kwargs=None):
 
         arguments = []
 
+        not_used_vars = vtable.get_clean_list()
+
         for var_name, var_type, var_init in inputs:
             if var_name in vtable.init_list:
                 var_cname = vtable.to_c_name(var_name).replace('ctx.', '')
@@ -85,7 +88,8 @@ def generate(module, args=tuple(), kwargs=None):
 
                 write_h(decl_str)
             else:
-                arguments.append(var_name)
+                if vtable.is_var_used(var_name):
+                    arguments.append(var_name)
 
         write_h('};' + '\n' * 3)
 
@@ -103,7 +107,6 @@ def generate(module, args=tuple(), kwargs=None):
                 write_cpp(string)
 
         write_cpp('\treturn ctx;\n}' + '\n' * 3)
-
         
         if len(return_vars) == 1:
             return_var = '%s ' % vtable.get_var_type(return_vars[0])
