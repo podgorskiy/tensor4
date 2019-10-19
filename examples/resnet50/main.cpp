@@ -4,7 +4,7 @@
 
 int main()
 {
-	ResNet net = ResNetLoad("ResNet.bin");
+	ResNet net = ResNetLoad("../resnet50/ResNet.bin");
 
 	t4::tensor4f input = image_io::imread("../common/alexnet224x224_input.png").expand();
 
@@ -20,7 +20,7 @@ int main()
 
 	t4::tensor2f output;
 	{
-		T4_ScopeProfiler(VGGForward);
+		T4_ScopeProfiler(Resnet50Forward);
 		output = ResNetForward(net, input);
 	}
 	output = t4::Softmax<1>(output);

@@ -1226,6 +1226,40 @@ namespace t4
 		return out;
 	}
 
+	template<typename T>
+	inline tensor<T, 4> GlobalAveragePool2d(tensor<T, 4> in)
+	{
+		const int N = number(in);
+		const int C = channels(in);
+		const int Hin = height(in);
+		const int Win = width(in);
+
+		tensor<T, 4> out = tensor<T, 4>::New({ N, C, 1, 1 });
+
+		for (int n = 0; n < N; ++n)
+		{
+			parallel_for(int c = 0; c < C; ++c)
+			{
+				auto inSubtensor = in.Sub(n, c);
+				const T* __restrict src = inSubtensor.ptr();
+
+				auto outSubtensor = out.Sub(n, c);
+				T* __restrict dst = outSubtensor.ptr();
+
+				T sum = T(0);
+				for (int i = 0; i < Hin; i++)
+				{
+					for (int j = 0; j < Win; j++)
+					{
+						sum += src[i * Win + j];
+					}
+				}
+				*dst = sum / (Hin * Win);
+			}
+		}
+		return out;
+	}
+
 	enum PaddingType
 	{
 		reflect
@@ -1885,10 +1919,30 @@ namespace t4
 	inline tensor<T, outDim> Reshape(tensor<T, D> x, tensor<int64, 1> shape)
 	{
 		std::array<int64, outDim> result_shape;
+		int unspecified_dim = -1;
 		for (int i = 0; i < outDim; ++i)
 		{
 			result_shape[i] = shape.ptr()[i];
+			if (result_shape[i] == -1)
+			{
+				assert(unspecified_dim == -1);
+				unspecified_dim = i;
+			}
 		}
+		int64 size = 1;
+		for (int i = 0; i < result_shape.size(); ++i)
+		{
+			size *= result_shape[i];
+		}
+		if (size < 0)
+		{
+			size = -size;
+			int64 d = x.size() / size;
+			int64 rem = x.size() % size;
+			assert(rem == 0);
+			result_shape[unspecified_dim] = d;
+		}
+
 		auto out_tensor = tensor<T, outDim>::New(result_shape, x.sptr(), x.GetOffset());
 		assert(out_tensor.size() == x.size());
 		return out_tensor;

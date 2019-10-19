@@ -275,4 +275,4 @@ struct ResNet
 
 ResNet ResNetLoad(const char* filename);
 
-t4::tensor2f ResNetForward(const ResNet& ctx, t4::tensor4f x0);
+t4::tensor2f ResNetForward(const ResNet& ctx, t4::tensor4f xinput_1);
