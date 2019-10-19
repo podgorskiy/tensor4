@@ -312,14 +312,15 @@ class Parser:
     def accept_var_name(self):
         if self.accept_char('%'):
             name = '%'
-            if self.accept_str('input.'):
+            if self.accept_id():
                 name += self.param
+                self.accept_char('.')
             if self.accept_alnum() or self.accept_special():
                 name += self.param
                 while self.accept_alnum() or self.accept_special():
                     name += self.param
                 self.param = name
-                return True
+            return True
         return False
 
     def skip_spaces(self):
