@@ -31,8 +31,12 @@ class VarTable:
             ndim (int): number of dimentions. Range: [1..4]
         """
         assert(var[0] == '%')  # here 'var' is the name in %<number> format used in trace
-        type_letter = {'Float': 'f', 'Int': 'i', 'Double': 'd', '?': '?', 'Long': 'l'}
+        type_letter = {'Float': 'f', 'Int': 'i', 'Double': 'd', '?': '?', 'Long': 'i'}
         self.var_types[var] = ("t4::tensor%d%s" % (ndim, type_letter[dtype]), ndim, dtype)
+
+    def to_c_type(self, type):
+        type_letter = {'Float': 'float', 'Int': 'int', 'Double': 'double', '?': '?', 'Long': 't4::int64'}
+        return type_letter[type]
 
     def inc_ref_count(self, var):
         while var in self.alias:
@@ -88,6 +92,8 @@ class VarTable:
         assert(var[0] == '%')  # here 'var' is the name in %<number> format used in trace
         if var in self.var_types:
             return self.var_types[var][1:]
+        if var in self.scalar_constants:
+            return 0, "Int"
         else:
             return 0, "?"
 
@@ -114,6 +120,7 @@ class VarTable:
                     return str(int(self.scalar_constants[var]))
                 if dtype == "Double":
                     return str(float(self.scalar_constants[var]))
+                raise TypeError
         if var in self.alias:
             return self.to_c_name(self.alias[var])
         return "x" + var[1:].replace('.', '_')

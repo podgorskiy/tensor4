@@ -230,10 +230,10 @@ class Unsqueeze(Emitter):
 class Reshape(Emitter):
     def __init__(self, lhs, rhs, vtable):
         Emitter.__init__(self, lhs, rhs, vtable)
-        dim, dtype = self.vtable.get_var_dim_dtype(self.args[0])
         self.output = self.lhs[0]
         self.vtable.set_var_type(self.output[0], self.output[1], len(self.output[2]))
         self.validate_arg_return_count(2, 1)
+        self.template_parameters += [len(self.output[2])]
         self.name = "Reshape"
 
 
@@ -345,12 +345,17 @@ class Undefined(Emitter):
 class Constant(Emitter):
     def __init__(self, lhs, rhs, vtable):
         Emitter.__init__(self, lhs, rhs, vtable)
-        var_name, var_type, var_init = lhs[0]
         self.validate_arg_return_count(0, 1)
-        if self.param_map['value'] != '<Tensor>':
-            v = self.param_map['value']
-            self.vtable.add_scalar_const(var_name, v)
-        self._emit = lambda: None
+        # if self.param_map['value'] != '<Tensor>':
+        #     v = self.param_map['value']
+        #     self.vtable.add_scalar_const(var_name, v)
+        assert self.param_map['value'] != '<Tensor>', 'Not supported'
+
+        self.append_parameter('value', templated=False)
+        self.output = self.lhs[0]
+        self.template_parameters += [self.vtable.to_c_type(self.output[1])]
+        self.vtable.set_var_type(self.output[0], self.output[1], 0)
+        self.name = "Constant"
 
 
 class AtenExpand(Emitter):

@@ -432,6 +432,18 @@ namespace t4
 			return (T*)(m_ptr.get() + m_offset);
 		}
 
+		// Returns smart pointer to the data
+		std::shared_ptr<T> sptr() const
+		{
+			return m_ptr;
+		}
+
+		// Returns smart pointer to the data
+		int64 GetOffset() const
+		{
+			return m_offset;
+		}
+
 		// Returns number of elements in the tensor. It is equal to the product of dimentions of all axis.
 		int64 size() const
 		{
@@ -1729,7 +1741,7 @@ namespace t4
 		int64 elementCountA = a.size();
 		int64 elementCountB = b.size();
 
-		std::array<int, D> result_shape;
+		std::array<int64, D> result_shape;
 
 		for (int i = 0; i < D; ++i)
 		{
@@ -1776,6 +1788,12 @@ namespace t4
 		return tensor1i::New({(int)x.shape().size()}, &x.shape()[0]);
 	}
 
+	template<typename T>
+	inline tensor<T, 0> Constant(T x)
+	{
+		return tensor<T, 0>::New({}, &x);
+	}
+
 	template<typename T, int q, int r>
 	tensor<T, q + r - 1> Gather(tensor<T, q> x, tensor<int64, r> idx, int axis=0)
 	{
@@ -1804,7 +1822,7 @@ namespace t4
 		int64 gatherAxisDstSize = 1;
 		int64 gatherAxisSrcSize = 1;
 
-		for (int i = 0; i < idx.shape().size()-1; ++i)
+		for (int i = 0; i < (int64)idx.shape().size() - 1; ++i)
 		{
 			subblockCount *= idx.shape()[i];
 		}
@@ -1844,6 +1862,36 @@ namespace t4
 	inline tensor<T, q - 1> Gather(tensor<T, q> x, int64 idx)
 	{
 		return Gather(x, tensor<int64, 0>::New({}, &idx));
+	}
+
+	template<int Dim, typename T, int D>
+	inline tensor<T, D + 1> Unsqueeze(tensor<T, D> x)
+	{
+		std::array<int64, D + 1> result_shape;
+		for (int i = 0; i < Dim; ++i)
+		{
+			result_shape[i] = x.shape()[i];
+		}
+		result_shape[Dim] = 1;
+		for (int i = Dim; i < D; ++i)
+		{
+			result_shape[i + 1] = x.shape()[i];
+		}
+
+		return tensor<T, D + 1>::New(result_shape, x.sptr(), x.GetOffset());
+	}
+
+	template<int outDim, typename T, int D>
+	inline tensor<T, outDim> Reshape(tensor<T, D> x, tensor<int64, 1> shape)
+	{
+		std::array<int64, outDim> result_shape;
+		for (int i = 0; i < outDim; ++i)
+		{
+			result_shape[i] = shape.ptr()[i];
+		}
+		auto out_tensor = tensor<T, outDim>::New(result_shape, x.sptr(), x.GetOffset());
+		assert(out_tensor.size() == x.size());
+		return out_tensor;
 	}
 
 	template<typename T, int D>
