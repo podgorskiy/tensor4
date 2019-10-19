@@ -116,8 +116,12 @@ class Emitter(object):
         self.output = self.lhs[0]
         self.vtable.set_var_type(self.output[0], dtype, ndim)
 
-    def append_parameter(self, name, templated=False, padding=False):
-        param = self.param_map[name]
+    def append_parameter(self, name, templated=False, padding=False, default=None):
+        if name in self.param_map:
+            param = self.param_map[name]
+        else:
+            param = default
+
         param_to_append = []
         if isinstance(param, dict):
             for i in range(len(param.items())):
@@ -185,7 +189,7 @@ class AveragePool(Emitter):
 
         self.append_parameter('kernel_shape', templated=True)
         self.append_parameter('strides', templated=True)
-        self.append_parameter('pads', templated=True, padding=True)
+        self.append_parameter('pads', templated=True, padding=True, default=dict(_0=0, _1=0, _2=0, _3=0))
 
         self.name = "AveragePool%dd" % self.get_dim()
 
@@ -199,6 +203,27 @@ class Flatten(Emitter):
         self.validate_arg_return_count(1, 1)
         self.append_parameter('axis', templated=True)
         self.name = "Flatten"
+
+
+class Unsqueeze(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        dim, dtype = self.vtable.get_var_dim_dtype(self.args[0])
+        self.output = self.lhs[0]
+        self.vtable.set_var_type(self.output[0], dtype, dim + len(self.param_map['axes']))
+        self.validate_arg_return_count(1, 1)
+        self.append_parameter('axes', templated=True)
+        self.name = "Unsqueeze"
+
+
+class Reshape(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        dim, dtype = self.vtable.get_var_dim_dtype(self.args[0])
+        self.output = self.lhs[0]
+        self.vtable.set_var_type(self.output[0], self.output[1], len(self.output[2]))
+        self.validate_arg_return_count(2, 1)
+        self.name = "Reshape"
 
 
 class Concat(Emitter):
@@ -263,6 +288,15 @@ class Relu(Emitter):
         self.name = "Relu"
         self.validate_arg_return_count(1, 1)
         self.make_output_same_as_first_arg()
+
+
+class Shape(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        self.name = "Shape"
+        self.validate_arg_return_count(1, 1)
+        self.output = self.lhs[0]
+        self.vtable.set_var_type(self.output[0], 'Int', 1)
 
 
 class LeakyRelu(Emitter):
@@ -335,6 +369,17 @@ class Add(Emitter):
         #self._emit = lambda: binary_op_printer(self, '+')
 
 
+class Gather(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        self.name = "Gather"
+        self.validate_arg_return_count(2, 1)
+        ndimq, dtype = self.vtable.get_var_dim_dtype(self.args[0])
+        ndimr, _ = self.vtable.get_var_dim_dtype(self.args[1])
+        self.output = self.lhs[0]
+        self.vtable.set_var_type(self.output[0], dtype, ndimq + ndimr - 1)
+
+
 class BatchNormalization(Emitter):
     def __init__(self, lhs, rhs, vtable):
         Emitter.__init__(self, lhs, rhs, vtable)
@@ -363,6 +408,7 @@ register(ConvTranspose, 'onnx::ConvTranspose')
 register(MaxPool, 'onnx::MaxPool')
 register(AveragePool, 'onnx::AveragePool')
 register(Flatten, 'onnx::Flatten')
+register(Unsqueeze, 'onnx::Unsqueeze')
 register(Concat, 'onnx::Concat')
 register(Softmax, 'onnx::Softmax')
 register(Dropout, 'onnx::Dropout')
@@ -374,4 +420,7 @@ register(Undefined, 'prim::Undefined')
 register(Constant, 'onnx::Constant')
 register(Mul, 'onnx::Mul')
 register(Add, 'onnx::Add')
+register(Shape, 'onnx::Shape')
+register(Gather, 'onnx::Gather')
+register(Reshape, 'onnx::Reshape')
 register(BatchNormalization, 'onnx::BatchNormalization')

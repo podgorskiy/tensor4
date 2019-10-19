@@ -38,7 +38,7 @@ class Parser:
         self.statements = []
 
     def parse(self, text):
-        #print(text)
+        print(text)
         self.text = text + '\0'
         try:
             self.expect_graph()
@@ -71,16 +71,18 @@ class Parser:
         self.inputs = self.param
         self.skip_spaces()
         self.expect_char(')')
+        self.expect_char(':')
 
     def accept_var_decl_list(self):
         var_decl_list = []
-        while True:
-            if self.accept_var_decl():
-                var_decl_list.append(self.var)
+        while self.accept_var_decl():
+            var_decl_list.append(self.var)
+            if self.accept_char(','):
+                continue
             else:
-                break
-        self.param = var_decl_list
-        return True
+                self.param = var_decl_list
+                return True
+        return False
 
     def accept_var_decl(self):
         self.skip_spaces()
@@ -124,12 +126,10 @@ class Parser:
     def expect_body(self):
         self.skip_spaces()
         self.statements = []
-        self.expect_char('{')
         while self.accept_statement():
             self.statements.append(self.param)
         self.expect_return()
         self.skip_spaces()
-        self.expect_char('}')
 
     def accept_statement(self):
         lhs = []
@@ -145,6 +145,10 @@ class Parser:
             self.expect_char('=')
             self.skip_spaces()
             self.expect_op()
+            self.skip_spaces()
+            if self.accept_char('#'):
+                self.skip_till_next_line()
+
             rhs = (self.op, self.op_param, self.op_args, self.scope_type, self.scope_name)
             self.param = (lhs, rhs)
             return True
@@ -265,7 +269,6 @@ class Parser:
             if self.accept_args():
                 self.return_vars = self.param
                 self.skip_spaces()
-                self.expect_char(';')
             else:
                 raise TraceParseException("Expected return statement to return at least one tensor.")
         else:
@@ -302,6 +305,8 @@ class Parser:
     def accept_var_name(self):
         if self.accept_char('%'):
             name = '%'
+            if self.accept_str('input.'):
+                name += self.param
             if self.accept_alnum() or self.accept_special():
                 name += self.param
                 while self.accept_alnum() or self.accept_special():
@@ -317,7 +322,6 @@ class Parser:
 
     def accept_special(self):
         return self.accept_char(':') or self.accept_char('/') or self.accept_char('_') or self.accept_char('-')
-
 
     def accept_alnum(self):
         return self.accept_digit() or self.accept_alpha()
@@ -415,3 +419,16 @@ class Parser:
             self.it += 1
             return True
         return False
+
+    def accept_str(self, s):
+        if self.text[self.it:min(len(self.text[self.it:]), self.it + len(s))] == s:
+            self.param = s
+            self.it += len(s)
+            return True
+        return False
+
+    def skip_till_next_line(self):
+        while not self.accept_char('\n'):
+            if self.text[self.it] == '\0':
+                break
+            self.it += 1

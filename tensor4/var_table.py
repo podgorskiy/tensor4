@@ -116,7 +116,7 @@ class VarTable:
                     return str(float(self.scalar_constants[var]))
         if var in self.alias:
             return self.to_c_name(self.alias[var])
-        return "x" + var[1:]
+        return "x" + var[1:].replace('.', '_')
 
     def bind_var_to_parameter(self, var, parameter):
         """
