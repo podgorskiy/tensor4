@@ -203,6 +203,13 @@ class Parser:
                         pass
                     else:
                         return False
+                elif self.accept_char('"'):
+                    start = self.it
+                    while not self.accept_char('"'):
+                        self.it += 1
+                    end = self.it
+                    val = self.text[start:end-1]
+                    pass
                 elif self.accept_op_params(True):
                     val = self.param
                 elif self.accept_id():

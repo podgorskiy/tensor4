@@ -288,6 +288,7 @@ class Pad(Emitter):
         Emitter.__init__(self, lhs, rhs, vtable)
         self.make_output_same_as_first_arg()
         self.validate_arg_return_count(1, 1)
+        self.param_map['mode'] = 't4::' + self.param_map['mode']
         self.append_parameter('mode', templated=True)
         self.append_parameter('pads')
         self.name = "Pad"

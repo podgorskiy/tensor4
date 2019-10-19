@@ -11,11 +11,11 @@ if(MSVC)
 elseif(APPLE)
     set(COMMON_OPTIONS -DHAVE_PTHREAD)
     set(DEBUG_OPTIONS -g -Wall)
-    set(RELEASE_OPTIONS -Ofast -fPIC -funsafe-math-optimizations -fno-strict-aliasing -fno-rtti -ffast-math -flto -msse2 -msse3 -msse4)
+    set(RELEASE_OPTIONS -Ofast -fPIC -funsafe-math-optimizations -fno-strict-aliasing -fno-rtti -ffast-math -flto -msse2 -msse3 -msse4 -fopenmp)
 else()
     set(COMMON_OPTIONS -DHAVE_PTHREAD)
     set(DEBUG_OPTIONS -g -Wall)
-    set(RELEASE_OPTIONS -Ofast -fPIC -funsafe-math-optimizations -fno-strict-aliasing -fno-rtti -ffast-math -flto -msse2 -msse3 -msse4)
+    set(RELEASE_OPTIONS -Ofast -fPIC -funsafe-math-optimizations -fno-strict-aliasing -fno-rtti -ffast-math -flto -msse2 -msse3 -msse4 -fopenmp)
 endif()
 
 set(DEBUG_OPTIONS ${DEBUG_OPTIONS} ${COMMON_OPTIONS})
@@ -53,7 +53,10 @@ add_executable(resnet50 ${SOURCES})
 ##############################################################
 # Linkage
 ##############################################################
-set(LIBRARIES rt m)
+if(MSVC)
+else()
+    set(LIBRARIES rt m gomp)
+endif()
 
 target_link_libraries(alexnet ${LIBRARIES})
 target_link_libraries(densenet169 ${LIBRARIES})

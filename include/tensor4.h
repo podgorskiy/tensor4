@@ -1262,7 +1262,8 @@ namespace t4
 
 	enum PaddingType
 	{
-		reflect
+		reflect,
+		constant
 	};
 
 	// TODO: implement actual padding instead of just zero padiing

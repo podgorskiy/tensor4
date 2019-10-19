@@ -854,4 +854,4 @@ struct DenseNet
 
 DenseNet DenseNetLoad(const char* filename);
 
-t4::tensor2f DenseNetForward(const DenseNet& ctx, t4::tensor4f x0);
+t4::tensor2f DenseNetForward(const DenseNet& ctx, t4::tensor4f xinput_1);

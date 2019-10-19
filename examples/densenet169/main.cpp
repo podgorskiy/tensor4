@@ -4,7 +4,7 @@
 
 int main()
 {
-	DenseNet net = DenseNetLoad("DenseNet.bin");
+	DenseNet net = DenseNetLoad("../densenet169/DenseNet.bin");
 
 	t4::tensor4f input = image_io::imread("../common/alexnet224x224_input.png").expand();
 
@@ -21,15 +21,9 @@ int main()
 	//t4::tensor2f output = t4::Softmax<1>(DenseNetForward(net, input));
 
 	t4::tensor2f output;
-	int time = 0;
-	for (int i = 0; i < 100; ++i)
-	{
-		T4_ScopeProfiler(DenseNetForward);
-		output = DenseNetForward(net, input);
-		time += scopeVar_DenseNetForward.GetTime();
-	}
-	time /= 100;
-	printf("Time:%d\n", time);
+
+	T4_ScopeProfiler(DenseNetForward);
+	output = DenseNetForward(net, input);
 
 	output = t4::Softmax<1>(output);
 
