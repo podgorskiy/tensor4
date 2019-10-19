@@ -40,4 +40,4 @@ struct VGG
 
 VGG VGGLoad(const char* filename);
 
-t4::tensor2f VGGForward(const VGG& ctx, t4::tensor4f x0);
+t4::tensor2f VGGForward(const VGG& ctx, t4::tensor4f xinput_1);

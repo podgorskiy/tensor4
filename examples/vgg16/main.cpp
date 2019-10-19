@@ -4,7 +4,7 @@
 
 int main()
 {
-	VGG net = VGGLoad("VGG.bin");
+	VGG net = VGGLoad("../vgg16/VGG.bin");
 
 	t4::tensor4f input = image_io::imread("../common/alexnet224x224_input.png").expand();
 
