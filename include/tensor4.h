@@ -500,6 +500,7 @@ namespace t4
 	typedef tensor<int64, 3> tensor3i;
 	typedef tensor<int64, 2> tensor2i;
 	typedef tensor<int64, 1> tensor1i;
+	typedef tensor<int64, 0> tensor0i;
 
 	namespace data_loading
 	{
@@ -1775,6 +1776,76 @@ namespace t4
 		return tensor1i::New({(int)x.shape().size()}, &x.shape()[0]);
 	}
 
+	template<typename T, int q, int r>
+	tensor<T, q + r - 1> Gather(tensor<T, q> x, tensor<int64, r> idx, int axis=0)
+	{
+		std::array<int64, q + r - 1> result_shape;
+		for (int i = 0; i < r - 1; ++i)
+		{
+			result_shape[i] = idx.shape()[i];
+		}
+		for (int i = 0; i < q; ++i)
+		{
+			if (i != axis)
+			{
+				result_shape[i + r - 1] = x.shape()[i];
+			}
+			else if (r > 0)
+			{
+				result_shape[i + r - 1] = idx.shape()[r-1];
+			}
+		}
+
+		tensor<T, q + r - 1> result = tensor<T, q + r - 1>::New(result_shape);
+
+		int64 blockSize = 1;
+		int64 subblockCount = 1;
+		int64 blockCount = 1;
+		int64 gatherAxisDstSize = 1;
+		int64 gatherAxisSrcSize = 1;
+
+		for (int i = 0; i < idx.shape().size()-1; ++i)
+		{
+			subblockCount *= idx.shape()[i];
+		}
+
+		for (int i = axis + 1; i < x.shape().size(); ++i)
+		{
+			blockSize *= x.shape()[i];
+		}
+
+		for (int i = 0; i < axis; ++i)
+		{
+			blockCount *= x.shape()[i];
+		}
+
+		if (idx.shape().size() > 0)
+		{
+			gatherAxisDstSize = idx.shape()[idx.shape().size() - 1];
+		}
+		gatherAxisSrcSize = x.shape()[axis];
+
+		for (int64 i = 0; i < subblockCount; ++i)
+		{
+			for (int64 j = 0; j < blockCount; ++j)
+			{
+				for (int64 k = 0; k < gatherAxisDstSize; ++k)
+				{
+					int64 index = idx.ptr()[gatherAxisDstSize * i + k];
+					memcpy(result.ptr() + blockSize * gatherAxisDstSize * blockCount * i + blockSize * gatherAxisDstSize * j + blockSize * k, x.ptr() + blockSize * gatherAxisSrcSize * j + blockSize * index, blockSize * sizeof(T));
+				}
+			}
+		}
+
+		return result;
+	}
+
+	template<typename T, int q>
+	inline tensor<T, q - 1> Gather(tensor<T, q> x, int64 idx)
+	{
+		return Gather(x, tensor<int64, 0>::New({}, &idx));
+	}
+
 	template<typename T, int D>
 	inline void release(tensor<T, D>& x)
 	{
@@ -1886,7 +1957,7 @@ namespace t4
 		{
 		public:
 			template<typename T>
-			static void Print(std::ostream& output, const T* data, int indent, int width, const int* shape)
+			static void Print(std::ostream& output, const T* data, int indent, int width, const int64* shape)
 			{
 				output << "[";
 				size_t stride = 1;
@@ -1925,7 +1996,7 @@ namespace t4
 		{
 		public:
 			template<typename T>
-			static void Print(std::ostream& output, const T* data, int indent, int width, const int* shape)
+			static void Print(std::ostream& output, const T* data, int indent, int width, const int64* shape)
 			{
 				output << "[";
 				for (int i = 0; i < *shape; ++i)
