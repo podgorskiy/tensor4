@@ -15,7 +15,9 @@ What it can do?:
  * Convert most of pytorch graphs to C++ code
  * Can run *DenseNet*, *ResNet*, *AlexNet*, *Vgg16*.
  * Produces very small binary footprint onto executable. Executable that can run DenseNet is about 100kb.
- 
+
+**DCGAN** web demo: http://podgorskiy.com/static/dcgan/dcgan.html
+
 Exampe:
 
 .. code:: python
