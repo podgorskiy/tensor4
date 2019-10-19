@@ -6,9 +6,9 @@ int main()
 {
 	AlexNet net = AlexNetLoad("AlexNet.bin");
 
-	t4::tensor4f input = image_io::imread("alexnet224x224_input.png").expand();
+	t4::tensor4f input = image_io::imread("../common/alexnet224x224_input.png").expand();
 
-	auto classes = imagenet::load_classes("classes.txt");
+	auto classes = imagenet::load_classes("../common/classes.txt");
 
 	float mean[] = { 0.485f, 0.456f, 0.406f };
 	float std[] = { 0.229f, 0.224f, 0.225f };

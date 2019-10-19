@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-from scipy import misc
+import imageio
 import torchvision.models as models
 import sys
 import os
@@ -44,7 +44,7 @@ def main():
     mean = numpy2torch(np.array([0.485, 0.456, 0.406]).reshape([1, 3, 1, 1]))
     std = numpy2torch(np.array([0.229, 0.224, 0.225]).reshape([1, 3, 1, 1]))
 
-    im = misc.imread('../common/alexnet224x224_input.png')[:, :, :3].transpose((2, 0, 1)) / 255.0
+    im = imageio.imread('../common/alexnet224x224_input.png')[:, :, :3].transpose((2, 0, 1)) / 255.0
     im = numpy2torch(im).view(1, 3, 224, 224)
 
     im = (im - mean) / std
