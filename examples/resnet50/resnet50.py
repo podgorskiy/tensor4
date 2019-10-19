@@ -31,6 +31,7 @@ def numpy2torch(x):
     else:
         return x.cpu()
 
+
 def main():
     resnet = models.resnet50(pretrained=True)
 

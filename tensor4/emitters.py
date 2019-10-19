@@ -194,6 +194,17 @@ class AveragePool(Emitter):
         self.name = "AveragePool%dd" % self.get_dim()
 
 
+class GlobalAveragePool(Emitter):
+    def __init__(self, lhs, rhs, vtable):
+        Emitter.__init__(self, lhs, rhs, vtable)
+        self.make_output_same_as_first_arg()
+        ndim, dtype = self.vtable.get_var_dim_dtype(self.args[0])
+
+        self.validate_arg_return_count(1, 1)
+
+        self.name = "GlobalAveragePool%dd" % (ndim - 2)
+
+
 class Flatten(Emitter):
     def __init__(self, lhs, rhs, vtable):
         Emitter.__init__(self, lhs, rhs, vtable)
@@ -407,6 +418,7 @@ register(Conv, 'onnx::Conv')
 register(ConvTranspose, 'onnx::ConvTranspose')
 register(MaxPool, 'onnx::MaxPool')
 register(AveragePool, 'onnx::AveragePool')
+register(GlobalAveragePool, 'onnx::GlobalAveragePool')
 register(Flatten, 'onnx::Flatten')
 register(Unsqueeze, 'onnx::Unsqueeze')
 register(Concat, 'onnx::Concat')
