@@ -151,7 +151,7 @@ namespace t4
 		};
 
 		// Creates a tensor of given shape and copies data from provided raw data pointer
-		static tensor<T, D> New(const std::array<int, D>& shape, T* data, bool create_copy = true)
+		static tensor<T, D> New(const std::array<int64, D>& shape, T* data, bool create_copy = true)
 		{
 			tensor<T, D> t;
 			t.m_shape = shape;
@@ -168,8 +168,19 @@ namespace t4
 			return t;
 		}
 
+		// Creates a tensor of given shape and copies data from provided raw data pointer
+		static tensor<T, D> New(const std::array<int64, D>& shape, const T* data)
+		{
+			tensor<T, D> t;
+			t.m_shape = shape;
+			t.m_offset = 0;
+			t.m_ptr.reset(new T[(size_t)t.size()]);
+			memcpy(t.ptr(), data, (size_t)t.size() * sizeof(T));
+			return t;
+		}
+
 		// Creates a tensor of given shape and takes provided shared pointer. 
-		static tensor<T, D> New(const std::array<int, D>& shape, std::shared_ptr<T> data, int64 offset = 0)
+		static tensor<T, D> New(const std::array<int64, D>& shape, std::shared_ptr<T> data, int64 offset = 0)
 		{
 			tensor<T, D> t;
 			t.m_ptr = data;
@@ -181,7 +192,7 @@ namespace t4
 
 		// Creates a tensor of given shape and allocates data for the new tensor.
 		// If zero_initialize is true, will also zeroinitialize it.
-		static tensor<T, D> New(const std::array<int, D>& shape)
+		static tensor<T, D> New(const std::array<int64, D>& shape)
 		{
 			tensor<T, D> t;
 			t.m_shape = shape;
@@ -192,7 +203,7 @@ namespace t4
 
 		// Creates a tensor of given shape and allocates data for the new tensor.
 		// If zero_initialize is true, will also zeroinitialize it.
-		static tensor<T, D> Zeros(const std::array<int, D>& shape)
+		static tensor<T, D> Zeros(const std::array<int64, D>& shape)
 		{
 			tensor<T, D> t = New(shape);
 			memset(t.ptr(), 0, (size_t)t.size() * sizeof(T));
@@ -201,7 +212,7 @@ namespace t4
 
 		// Returns a tensor filled with random numbers from a normal distribution with mean 0 and variance 1
 		// Creates a tensor of given shape and allocates data for the new tensor.
-		static tensor<T, D> RandN(const std::array<int, D>& shape)
+		static tensor<T, D> RandN(const std::array<int64, D>& shape)
 		{
 			std::random_device rd{};
 			std::mt19937 gen{ rd() };
@@ -314,7 +325,7 @@ namespace t4
 
 		tensor<T, D + 1> expand()
 		{
-			std::array<int, D + 1> new_shape;
+			std::array<int64, D + 1> new_shape;
 			new_shape[0] = 1;
 			for (int i = 0; i < D; ++i)
 			{
@@ -433,14 +444,14 @@ namespace t4
 		}
 
 		// Returns the shape of the tensor
-		const std::array<int, D>& shape() const
+		const std::array<int64, D>& shape() const
 		{
 			return m_shape;
 		}
 
 	private:
 		std::shared_ptr<T> m_ptr;
-		std::array<int, D> m_shape;
+		std::array<int64, D> m_shape;
 
 		// Offset of the data of the tensor. The data the tensor starts from m_ptr.get() + m_offset.
 		// It is used to create subtensors (which are effectivly slices) as references.
@@ -631,6 +642,11 @@ namespace t4
 #pragma warning (disable: 4996)
 #endif
 		FILE* file = fopen(filename.c_str(), "rb");
+		if (file == nullptr)
+		{
+			file = fopen(("../" + filename).c_str(), "rb");
+		}
+
 #ifdef _MSC_VER
 #pragma warning ( pop )
 #endif
@@ -1246,9 +1262,9 @@ namespace t4
 	}
 
 	template<size_t D>
-	inline std::array<int, D> BroadCastShape(const std::array<int, D>& a, const std::array<int, D>& b)
+	inline std::array<int64, D> BroadCastShape(const std::array<int64, D>& a, const std::array<int64, D>& b)
 	{
-		std::array<int, D> result;
+		std::array<int64, D> result;
 		for (int i = 0; i < D; ++i)
 		{
 			if (a[i] != b[i])
@@ -1261,9 +1277,9 @@ namespace t4
 	}
 
 	template<size_t D>
-	inline std::array<int, 4> ExpandShape(const std::array<int, D>& x)
+	inline std::array<int64, 4> ExpandShape(const std::array<int64, D>& x)
 	{
-		std::array<int, 4> out = { 1, 1, 1, 1 };
+		std::array<int64, 4> out = { 1, 1, 1, 1 };
 		for (int i = 0; i < D; ++i)
 		{
 			out[D - i - 1] = x[D - i - 1];
@@ -1272,28 +1288,28 @@ namespace t4
 	}
 
 	template<size_t D>
-	int64 ComputeWrappedIndex(int64 n, int64 c, int64 h, int64 w, const std::array<int, D>& s);
+	int64 ComputeWrappedIndex(int64 n, int64 c, int64 h, int64 w, const std::array<int64, D>& s);
 
 	template<>
-	inline int64 ComputeWrappedIndex<4>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 4>& s)
+	inline int64 ComputeWrappedIndex<4>(int64 n, int64 c, int64 h, int64 w, const std::array<int64, 4>& s)
 	{
 		return (w % s[3]) + (h % s[2]) * s[3] + (c % s[1]) * s[3] * s[2] + (n % s[0]) * s[3] * s[2] * s[1];
 	}
 
 	template<>
-	inline int64 ComputeWrappedIndex<3>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 3>& s)
+	inline int64 ComputeWrappedIndex<3>(int64 n, int64 c, int64 h, int64 w, const std::array<int64, 3>& s)
 	{
 		return (w % s[2]) + (h % s[1]) * s[2] + (c % s[0]) * s[2] * s[1];
 	}
 
 	template<>
-	inline int64 ComputeWrappedIndex<2>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 2>& s)
+	inline int64 ComputeWrappedIndex<2>(int64 n, int64 c, int64 h, int64 w, const std::array<int64, 2>& s)
 	{
 		return (w % s[1]) + (h % s[0]) * s[1];
 	}
 
 	template<>
-	inline int64 ComputeWrappedIndex<1>(int64 n, int64 c, int64 h, int64 w, const std::array<int, 1>& s)
+	inline int64 ComputeWrappedIndex<1>(int64 n, int64 c, int64 h, int64 w, const std::array<int64, 1>& s)
 	{
 		return (w % s[0]);
 	}
@@ -1751,6 +1767,12 @@ namespace t4
 		}
 
 		return out;
+	}
+
+	template<typename T, int D>
+	inline tensor1i Shape(tensor<T, D>& x)
+	{
+		return tensor1i::New({(int)x.shape().size()}, &x.shape()[0]);
 	}
 
 	template<typename T, int D>
