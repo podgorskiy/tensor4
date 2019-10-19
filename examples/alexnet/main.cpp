@@ -4,7 +4,7 @@
 
 int main()
 {
-	AlexNet net = AlexNetLoad("AlexNet.bin");
+	AlexNet net = AlexNetLoad("../alexnet/AlexNet.bin");
 
 	t4::tensor4f input = image_io::imread("../common/alexnet224x224_input.png").expand();
 

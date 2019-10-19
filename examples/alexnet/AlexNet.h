@@ -24,4 +24,4 @@ struct AlexNet
 
 AlexNet AlexNetLoad(const char* filename);
 
-t4::tensor2f AlexNetForward(const AlexNet& ctx, t4::tensor4f x0);
+t4::tensor2f AlexNetForward(const AlexNet& ctx, t4::tensor4f xinput_1);
