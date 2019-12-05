@@ -1022,7 +1022,7 @@ namespace t4
 	inline tensor<T, 4> ConvTranspose2d(
 		tensor<T, 4> in
 		, tensor<T, 4> kernel
-		, tensor<T, 1> bias)
+		, tensor<T, 1> bias = tensor<T, 1>())
 	{
 		T4_ScopeProfiler(ConvTranspose2d);
 		assert(number(kernel) == channels(in));
@@ -1526,6 +1526,14 @@ namespace t4
 	}
 
 	template<typename T, int D>
+	inline tensor<T, D> Pow(const tensor<T, D>& in, T p)
+	{
+		POINT_WISE(
+			T out = pow(v, p);
+		)
+	}
+
+	template<typename T, int D>
 	inline tensor<T, D> Neg(const tensor<T, D>& in)
 	{
 		POINT_WISE(
@@ -1615,6 +1623,21 @@ namespace t4
 	inline tensor<T, D> operator / (const tensor<T, D>& a, const tensor<T, D>& b)
 	{
 		return Div(a, b);
+	}
+
+
+	template<typename T, int D>
+	inline tensor<T, D> Div(const tensor<T, D>& in, T x)
+	{
+		POINT_WISE(
+			T out = v / x;
+		)
+	}
+
+	template<typename T, int D>
+	inline tensor<T, D> operator / (const tensor<T, D>& a, T x)
+	{
+		return Div(a, x);
 	}
 
 	template<int d, typename T, int D>
