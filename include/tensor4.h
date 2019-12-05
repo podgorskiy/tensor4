@@ -32,9 +32,9 @@
 #include <string.h>
 #include <math.h>
 #include <cmath>
-//#define USE_MKLDNN
+//#define USE_MKL
 
-#ifdef USE_MKLDNN
+#ifdef USE_MKL
 #include <mkl_cblas.h>
 #endif
 
@@ -760,7 +760,7 @@ namespace t4
 		template<typename T>
 		inline void gemm_nn(int M, int N, int K, const T* A, int LDA, const T* B, int LDB, T* C, int LDC)
 		{
-#ifdef USE_MKLDNN
+#ifdef USE_MKL
 			float alpha = 1.0f;
 			float betta = 1.0f;
 			cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, M, K, alpha, B, LDB, A, LDA, betta, C, LDC);
@@ -1229,6 +1229,7 @@ namespace t4
 	template<typename T>
 	inline tensor<T, 4> GlobalAveragePool2d(tensor<T, 4> in)
 	{
+		T4_ScopeProfiler(GlobalAveragePool2d)
 		const int N = number(in);
 		const int C = channels(in);
 		const int Hin = height(in);
@@ -1249,9 +1250,15 @@ namespace t4
 				T sum = T(0);
 				for (int i = 0; i < Hin; i++)
 				{
-					for (int j = 0; j < Win; j++)
+					int j = 0;
+					const T* __restrict p =src + i * Win;
+					for (j = 0; j < (Win-6)/6; j+=6)
 					{
-						sum += src[i * Win + j];
+						sum += p[j + 0] + p[j + 1] + p[j + 2] + p[j + 3] + p[j + 4] + p[j + 5];
+					}
+					for (; j < Win; j++)
+					{
+						sum += p[j];
 					}
 				}
 				*dst = sum / (Hin * Win);
@@ -1367,15 +1374,15 @@ namespace t4
 		auto out = in.SameAs(); \
 		T*  __restrict dst = out.ptr(); \
 		const T* __restrict src = in.ptr(); \
-		int64 i = 0; \
-		for (int64 l = (int64)in.size(); i < l - 4; i += 4) \
+		int64 l = (int64)in.size(); \
+		parallel_for (int64 i=0; i < l - 4; i += 4) \
 		{ \
 			{ T v = src[i + 0]; OP; dst[i + 0] = out; }\
 			{ T v = src[i + 1]; OP; dst[i + 1] = out; }\
 			{ T v = src[i + 2]; OP; dst[i + 2] = out; }\
 			{ T v = src[i + 3]; OP; dst[i + 3] = out; }\
 		} \
-		for (int64 l = (int64)in.size(); i < l; ++i) \
+		for (int64 i=4 * ((l-4)/4); i < l; ++i) \
 		{ \
 			{ T v = src[i]; OP; dst[i] = out; }\
 		}\
@@ -1383,15 +1390,15 @@ namespace t4
 
 #define POINT_INPLACE(OP) \
 		T*  __restrict ptr = in.ptr(); \
-		int64 i = 0; \
-		for (int64 l = (int64)in.size(); i < l - 4; i += 4) \
+		int64 l = (int64)in.size(); \
+		parallel_for (int64 i=0; i < l - 4; i += 4) \
 		{ \
 			{ T v = ptr[i + 0]; OP; ptr[i + 0] = out; }\
 			{ T v = ptr[i + 1]; OP; ptr[i + 1] = out; }\
 			{ T v = ptr[i + 2]; OP; ptr[i + 2] = out; }\
 			{ T v = ptr[i + 3]; OP; ptr[i + 3] = out; }\
 		} \
-		for (int64 l = (int64)in.size(); i < l; ++i) \
+		for (int64 i=4 * ((l-4)/4); i < l; ++i) \
 		{ \
 			{ T v = ptr[i]; OP; ptr[i] = out; }\
 		}\
@@ -1404,15 +1411,15 @@ namespace t4
 			T*  __restrict dst = out.ptr(); \
 			const T* __restrict srcA = a.ptr(); \
 			const T* __restrict srcB = b.ptr(); \
-			int64 i = 0; \
-			for (int64 l = a.size(); i < l - 4; i += 4) \
+			int64 l =(int64)a.size(); \
+			parallel_for (int64 i=0; i < l - 4; i += 4) \
 			{ \
 				{ T a = srcA[i + 0]; T b = srcB[i + 0]; OP; dst[i + 0] = out; }\
 				{ T a = srcA[i + 1]; T b = srcB[i + 1]; OP; dst[i + 1] = out; }\
 				{ T a = srcA[i + 2]; T b = srcB[i + 2]; OP; dst[i + 2] = out; }\
 				{ T a = srcA[i + 3]; T b = srcB[i + 3]; OP; dst[i + 3] = out; }\
 			} \
-			for (int64 l = a.size(); i < l; ++i) \
+			for (int64 i=4 * ((l-4)/4); i < l; ++i) \
 			{ \
 				{ T a = srcA[i]; T b = srcB[i]; OP; dst[i] = out; }\
 			}\
@@ -1421,23 +1428,51 @@ namespace t4
 		else \
 		{ \
 			auto resultShape = BroadCastShape(a.shape(), b.shape()); \
-			auto out = tensor<T, D>::New(resultShape); \
+			const auto s = ExpandShape(resultShape); \
+			auto out = tensor<T, 4>::New(s); \
 			T*  __restrict dst = out.ptr(); \
 			const T* __restrict srcA = a.ptr(); \
 			const T* __restrict srcB = b.ptr(); \
-			auto resultShapeE = ExpandShape(resultShape); \
-			auto aShape = a.shape(); \
-			auto bShape = b.shape(); \
-			for (int64 n = 0; n < resultShapeE[0]; ++n) \
-				for (int64 c = 0; c < resultShapeE[1]; ++c) \
-					for (int64 h = 0; h < resultShapeE[2]; ++h) \
-						for (int64 w = 0; w < resultShapeE[3]; ++w) \
-						{ \
-							T a = srcA[ComputeWrappedIndex(n, c, h, w, aShape)];\
-							T b = srcB[ComputeWrappedIndex(n, c, h, w, bShape)];\
-							OP; dst[ComputeWrappedIndex(n, c, h, w, resultShape)] = out; \
-						}\
-			return out;\
+			auto sa = a.shape(); \
+			auto sb = b.shape(); \
+			for (int64 n = 0; n < s[0]; ++n) {\
+				const T* __restrict srcAn = srcA + (n % sa[0]) * sa[3] * sa[2] * sa[1]; \
+				const T* __restrict srcBn = srcB + (n % sb[0]) * sb[3] * sb[2] * sb[1]; \
+				T* __restrict dstn = dst + n * s[3] * s[2] * s[1]; \
+                parallel_for (int64 c = 0; c < s[1]; ++c) {\
+					const T* __restrict srcAc = srcAn + (c % sa[1]) * sa[3] * sa[2]; \
+					const T* __restrict srcBc = srcBn + (c % sb[1]) * sb[3] * sb[2]; \
+					T* __restrict dstc = dstn + c * s[3] * s[2]; \
+                    for (int64 h = 0; h < s[2]; ++h) {\
+						const T* __restrict srcAh = srcAc + (h % sa[2]) * sa[3]; \
+						const T* __restrict srcBh = srcBc + (h % sb[2]) * sb[3]; \
+						T* __restrict dsth = dstc + h * s[3]; \
+						if (sa[3]==1) {\
+                            const T a = *srcAh; \
+                            for (int64 w = 0; w < s[3]; ++w) \
+                            { \
+                                const T b = *(srcBh + w); \
+                                OP; dsth[w] = out; \
+                            }\
+                        }else if (sb[3]==1){\
+                            const T b = *srcBh; \
+                            for (int64 w = 0; w < s[3]; ++w) \
+                            { \
+                                const T a = *(srcAh + w); \
+                                OP; dsth[w] = out; \
+                            }\
+                        }else\
+                        for (int64 w = 0; w < s[3]; ++w) \
+                        { \
+							const T a = *(srcAh + (w % sa[3])); \
+							const T b = *(srcBh + (w % sb[3])); \
+                            OP; dsth[w] = out; \
+                        }\
+                    }\
+                }\
+            }\
+			auto out_tensor = tensor<T, D>::New(resultShape, out.sptr(), out.GetOffset());\
+			return out_tensor;\
 		}
 
 	template<typename T, int D>
@@ -1528,6 +1563,7 @@ namespace t4
 	template<typename T, int D>
 	inline tensor<T, D> Pow(const tensor<T, D>& in, T p)
 	{
+		T4_ScopeProfiler(Pow)
 		POINT_WISE(
 			T out = pow(v, p);
 		)
