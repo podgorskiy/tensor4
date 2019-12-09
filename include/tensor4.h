@@ -582,12 +582,17 @@ namespace t4
 	// Those properties are checked when the load method is used to create new weight tensor.
 	class model_dict
 	{
+		friend void save(model_dict md, const std::string& filename);
+		friend model_dict compress(model_dict md, int compression);
+		friend model_dict decompress(model_dict md, int compression);
 	private:
 		struct Entry
 		{
 			std::string type;
 			int ndim;
 			uint32_t shape[4];
+			uint64_t size;
+			uint64_t compressed_size;
 			std::shared_ptr<uint8_t> ptr;
 		};
 
@@ -603,6 +608,7 @@ namespace t4
 			assert(entry.shape[2] == h);
 			assert(entry.shape[3] == w);
 			assert(data_loading::check_type<T>(entry.type));
+			assert(entry.compressed_size == 0);
 
 			t = tensor<T, 4>::New({ n, c, h, w }, data_loading::reinterpret_pointer_cast<T>(entry.ptr));
 		}
@@ -615,6 +621,7 @@ namespace t4
 			assert(entry.shape[1] == h);
 			assert(entry.shape[2] == w);
 			assert(data_loading::check_type<T>(entry.type));
+			assert(entry.compressed_size == 0);
 
 			t = tensor<T, 3>::New({ w }, data_loading::reinterpret_pointer_cast<T>(entry.ptr));
 		}
@@ -626,6 +633,7 @@ namespace t4
 			assert(entry.shape[0] == h);
 			assert(entry.shape[1] == w);
 			assert(data_loading::check_type<T>(entry.type));
+			assert(entry.compressed_size == 0);
 
 			t = tensor<T, 2>::New({ h, w }, data_loading::reinterpret_pointer_cast<T>(entry.ptr));
 		}
@@ -636,13 +644,14 @@ namespace t4
 			Entry entry = m_parameters[name];
 			assert(entry.shape[0] == w);
 			assert(data_loading::check_type<T>(entry.type));
+			assert(entry.compressed_size == 0);
 
 			t = tensor<T, 1>::New({ w }, data_loading::reinterpret_pointer_cast<T>(entry.ptr));
 		}
 
-		void add_parameter(const std::string& name, const std::string& type, int ndim, uint32_t shape[4], std::shared_ptr<uint8_t> ptr)
+		void add_parameter(const std::string& name, const std::string& type, int ndim, const uint32_t shape[4], uint64_t size, uint64_t compressed_size, std::shared_ptr<uint8_t> ptr)
 		{
-			m_parameters[name] = Entry({ type, ndim, shape[0], shape[1], shape[2], shape[3], ptr });
+			m_parameters[name] = Entry({ type, ndim, { shape[0], shape[1], shape[2], shape[3] }, size, compressed_size, ptr });
 		}
 	};
 
@@ -693,16 +702,48 @@ namespace t4
 			std::shared_ptr<uint8_t> ptr;
 			size_t param_size = data_loading::get_size(type) * shape[0] * shape[1] * shape[2] * shape[3];
 			ptr.reset(new uint8_t[param_size]);
+			uint64_t size = 0;
+			fread(&size, sizeof(uint64_t), 1, file);
+			uint64_t compressed_size = 0;
+			fread(&compressed_size, sizeof(uint64_t), 1, file);
+			assert(param_size == size);
+			param_size = compressed_size == 0 ? param_size: compressed_size;
 			fread(ptr.get(), param_size, 1, file);
-			md.add_parameter(weight_name, type, ndim, shape, ptr);
+			md.add_parameter(weight_name, type, ndim, shape, size, compressed_size, ptr);
 
 			if (ftell(file) == file_size)
 			{
 				break;
 			}
 		}
+		fclose(file);
 
 		return md;
+	}
+
+	inline void save(const t4::model_dict md, const std::string& filename)
+	{
+		FILE* file = fopen(filename.c_str(), "wb");
+
+		for (const auto& entry: md.m_parameters)
+		{
+			fwrite(entry.first.c_str(), entry.first.size() + 1, 1, file);
+			assert(entry.second.type.size() == 5);
+			fwrite(entry.second.type.c_str(), 5, 1, file);
+			fwrite(&entry.second.ndim, 1, 1, file);
+			for (int i = 0; i < entry.second.ndim; ++i)
+			{
+				fwrite(&entry.second.shape[i], 1, 4, file);
+			}
+			auto shape = entry.second.shape;
+			uint64_t param_size = t4::data_loading::get_size(entry.second.type) * shape[0] * shape[1] * shape[2] * shape[3];
+			fwrite(&param_size, sizeof(uint64_t), 1, file);
+			fwrite(&entry.second.compressed_size, sizeof(uint64_t), 1, file);
+			param_size = entry.second.compressed_size == 0 ? param_size: entry.second.compressed_size;
+			fwrite(entry.second.ptr.get(), param_size, 1, file);
+		}
+
+		fclose(file);
 	}
 
 	namespace details
