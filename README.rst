@@ -1,23 +1,39 @@
-tensor4 - pytorch to C++ convertor using lightweight templated tensor library
+tensor4 - single header, lightweight tensor library for C++. PyTorch trace to tensor4 convertor included.
 ================================
 
-This project was born as a fun experiment and can be useful because of it is extreamly lightweight.
+This project was born as a fun experiment and can be useful because it is extremely lightweight.
+It can be used as a standalone C++ tensor library, as well as with converter that can convert PyTorch traces to C++ code.
 
-Idea:
- * Use pytorch trace to generate C++ code that defines the network.
+Features:
  * Single header library
+ * Using PyTorch trace to generate C++ code that defines the network.
  * No dependencies
  * Inference only, no gradients.
  * Easy to use, simple to embed.
  * CPU only
+ * Can be compiled to WebAssembly
+ * ~ 2k lines of code.
  
 What it can do?:
- * Convert most of pytorch graphs to C++ code
+ * Convert some PyTorch graphs to C++ code
  * Can run *DenseNet*, *ResNet*, *AlexNet*, *Vgg16*.
- * Produces very small binary footprint onto executable. Executable that can run DenseNet is about 100kb.
+ * Produces a very small binary footprint onto executable. Executable that can run DenseNet is about 100kb.
+
+Can work in three modes:
+ * No dependencies, single thread
+ * No dependencies, but OpenMP for threading.
+ * MKL + OpenMP
+ 
+When not using MKL, the internal implementation of GEMM is used.
 
 **DCGAN** web demo: http://podgorskiy.com/static/dcgan/dcgan.html
 
+**StyleGAN** web demo: http://podgorskiy.com/static/stylegan/stylegan.html
+
+
+TODO:
+ * Add support of ONNX, instead of parsing PyTorch trace.
+ 
 Exampe:
 
 .. code:: python
