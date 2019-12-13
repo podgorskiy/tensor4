@@ -194,7 +194,10 @@ class VarTable:
                 f.write(struct.pack("b", w.ndim))
                 for i in range(w.ndim):
                     f.write(struct.pack("i", w.shape[i]))
-                f.write(w.tobytes())
+                b = w.tobytes()
+                f.write(struct.pack("Q", len(b)))
+                f.write(struct.pack("Q", 0))
+                f.write(b)
 
     def __init__(self, module):
         """

@@ -214,9 +214,9 @@ namespace t4
 		// Creates a tensor of given shape and allocates data for the new tensor.
 		static tensor<T, D> RandN(const std::array<int64, D>& shape)
 		{
-			std::random_device rd{};
-			std::mt19937 gen{ rd() };
-			std::normal_distribution<T> distribution(T(0), T(1));
+			static std::random_device rd{};
+			static std::mt19937 gen{ rd() };
+			std::normal_distribution<double> distribution(T(0), T(1));
 			tensor<T, D> t = New(shape);
 			T* ptr = t.ptr();
 			for (int64 i = 0, l = t.size(); i < l; ++i)

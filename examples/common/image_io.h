@@ -83,6 +83,26 @@ namespace image_io
 			}
 			return out;
 		}
+
+		static constexpr char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+		static constexpr uint8_t base64_inverse[256] = {
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,62,128,62,128,63,
+			52,53,54,55,56,57,58,59,60,61,128,128,128,128,128,128,
+			128,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,
+			15,16,17,18,19,20,21,22,23,24,25,128,128,128,128,63,
+			128,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
+			41,42,43,44,45,46,47,48,49,50,51,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128
+		};
 	}
 	
 	t4::tensor3f imread(const char* filename)
@@ -125,37 +145,93 @@ namespace image_io
 
 	inline void base64_encode(const uint8_t* src, char* dst, size_t src_len)
 	{
-		size_t full_block_count = src_len / 3;
-		size_t total_block_count = (src_len + 2) / 3;
-		size_t reminder = src_len % 3;
-
-		const char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-		for (int i = 0; i < full_block_count; ++i, dst += 4, src += 3)
+		for (const uint8_t* end = src + (src_len / 3) * 3; src < end; dst += 4, src += 3)
 		{
-			dst[0] = base64_chars[(src[0] & 0xfc) >> 2];
-			dst[1] = base64_chars[(src[0] & 0x03) << 4 | (src[1] & 0xf0) >> 4];
-			dst[2] = base64_chars[(src[1] & 0x0f) << 2 | (src[2] & 0xc0) >> 6];
-			dst[3] = base64_chars[src[2] & 0x3f];
+			dst[0] = details::base64_chars[(src[0] & 0xfc) >> 2];
+			dst[1] = details::base64_chars[(src[0] & 0x03) << 4 | (src[1] & 0xf0) >> 4];
+			dst[2] = details::base64_chars[(src[1] & 0x0f) << 2 | (src[2] & 0xc0) >> 6];
+			dst[3] = details::base64_chars[src[2] & 0x3f];
 		}
 
-		switch (reminder)
+		switch (src_len % 3)
 		{
 		case 1:
-			dst[0] = base64_chars[(src[0] & 0xfc) >> 2];
-			dst[1] = base64_chars[(src[0] & 0x03) << 4];
+			dst[0] = details::base64_chars[(src[0] & 0xfc) >> 2];
+			dst[1] = details::base64_chars[(src[0] & 0x03) << 4];
 			dst[2] = '=';
 			dst[3] = '=';
 			break;
 		case 2:
-			dst[0] = base64_chars[(src[0] & 0xfc) >> 2];
-			dst[1] = base64_chars[(src[0] & 0x03) << 4 | (src[1] & 0xf0) >> 4];
-			dst[2] = base64_chars[(src[1] & 0x0f) << 2];
+			dst[0] = details::base64_chars[(src[0] & 0xfc) >> 2];
+			dst[1] = details::base64_chars[(src[0] & 0x03) << 4 | (src[1] & 0xf0) >> 4];
+			dst[2] = details::base64_chars[(src[1] & 0x0f) << 2];
 			dst[3] = '=';
 			break;
 		case 0:
 			break;
 		}
+	}
+
+	inline void base64_decode(const char* src, uint8_t* dst, size_t src_len, size_t& dst_len)
+	{
+		union
+		{
+			uint32_t val = 0;
+			uint8_t data[4];
+		};
+		int count = 0;
+		const uint8_t* dst_beg = dst;
+		const char* src_end = src + src_len;
+
+		while (src != src_end && *src != '\0' && *src != '=')
+		{
+			char c = *src++;
+			uint8_t r = details::base64_inverse[c];
+			if (r != 128)
+			{
+				val = (val << 6) | r;
+				if (++count == 4)
+				{
+					dst[0] = data[2];
+					dst[1] = data[1];
+					dst[2] = data[0];
+					dst += 3;
+					count = 0;
+				}
+			}
+		}
+		val = val << (6 * ((4 - count) % 4));
+		int pad = 0;
+		while (src != src_end && *src != '\0' && pad < 3)
+		{
+			pad += *src == '=';
+			if (details::base64_inverse[*src] != 128)
+			{
+				break;
+			}
+			++src;
+		}
+		if ((count + pad) % 4  != 0)
+		{
+			dst_len = 0;
+			return;
+		}
+		switch (pad)
+		{
+		case 0:
+			break;
+		case 1:
+			*dst++ = data[2];
+			*dst++ = data[1];
+			break;
+		case 2:
+			*dst++ = data[2];
+			break;
+		default:
+			dst_len = 0;
+			return;
+		}
+		dst_len = dst - dst_beg;
 	}
 
 	inline std::string base64_encode(const uint8_t* src, size_t src_len)
