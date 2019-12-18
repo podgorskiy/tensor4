@@ -84,7 +84,7 @@ namespace image_io
 			return out;
 		}
 
-		static constexpr char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+		static constexpr const char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 		static constexpr uint8_t base64_inverse[256] = {
 			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
 			128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
