@@ -677,7 +677,8 @@ namespace t4
 		fseek(file, 0L, SEEK_SET);
 
 		model_dict md;
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
 		while (true)
 		{
 			std::string weight_name;
@@ -716,6 +717,7 @@ namespace t4
 				break;
 			}
 		}
+#pragma GCC diagnostic pop
 		fclose(file);
 
 		return md;
